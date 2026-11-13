@@ -1,0 +1,11 @@
+# MCU build outputs
+/mcu/main_project/build/
+/mcu/main_project/mx.scratch/
+
+# Temporary files
+*.tmp
+*.bak
+~$*
+Thumbs.db
+
+# Evidence logs, waveforms and photos are intentionally kept.

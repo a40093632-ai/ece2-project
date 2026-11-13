@@ -1,0 +1,12 @@
+{
+  "sources": [
+    "src/tick_gen.v",
+    "src/button_onepulse.v",
+    "src/stopwatch.v",
+    "src/sevenseg_decode.v",
+    "src/seg_scan8.v",
+    "src/stopwatch_top.v"
+  ],
+  "testbench": "sim/tb_stopwatch.sv",
+  "simulation_top": "tb_stopwatch"
+}

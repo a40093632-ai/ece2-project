@@ -1,0 +1,29 @@
+Time resolution is 1 ps
+--- 1. reset
+      after reset : 00:00.00  running=0  (total 0 cs)
+PASS  reset -> 00:00.00, stopped
+--- 2. start, pause, hold
+PASS  START -> running
+      paused : 00:01.58  running=0  (total 158 cs)
+PASS  PAUSE -> stopped
+PASS  elapsed about 1.58 s
+      after 1 s pause : 00:01.58  running=0  (total 158 cs)
+PASS  value held while paused
+--- 3. resume from held value
+PASS  RESUME -> running
+      paused again : 00:02.16  running=0  (total 216 cs)
+PASS  resumed from held value (+0.58 s)
+--- 4. reset button
+      after RESET : 00:00.00  running=0  (total 0 cs)
+PASS  RESET while paused -> 0, stopped
+      RESET while run : 00:00.00  running=0  (total 0 cs)
+PASS  RESET while running -> 0, stopped
+PASS  stays 0 after RESET
+--- 5. carry to seconds and minutes
+      after ~61 s : 01:01.08  running=0  (total 6108 cs)
+PASS  minute = 01
+PASS  cc 99 -> 00 increments seconds
+PASS  00:59.99 -> 01:00.00
+--- result
+RESULT: PASS (0 errors)
+$finish called at time : 1304690 ns : File "C:/Users/sumin/stopwatch/sim/tb_stopwatch.v" Line 191

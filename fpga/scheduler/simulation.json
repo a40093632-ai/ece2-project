@@ -1,0 +1,12 @@
+{
+  "sources": [
+    "src/scheduler.v",
+    "src/button_onepulse.v",
+    "src/tick_gen.v",
+    "src/seg_scan8.v",
+    "src/sevenseg_decode.v",
+    "src/scheduler_top.v"
+  ],
+  "testbench": "sim/tb_scheduler.sv",
+  "simulation_top": "tb_scheduler"
+}

@@ -1,0 +1,14 @@
+{
+  "sources": [
+    "../stopwatch/src/button_onepulse.v",
+    "../stopwatch/src/tick_gen.v",
+    "../stopwatch/src/seg_scan8.v",
+    "../stopwatch/src/sevenseg_decode.v",
+    "../stopwatch/src/stopwatch.v",
+    "../scheduler/src/scheduler.v",
+    "src/top.v"
+  ],
+  "testbench": "sim/tb_system.sv",
+  "simulation_top": "tb_system",
+  "design_top": "top"
+}

@@ -1,0 +1,3 @@
+VCD info: dumpfile wave.vcd opened for output.
+SCHEDULER PASS checks=160
+sim/tb_scheduler.v:65: $finish called at 2001000 (1ps)
