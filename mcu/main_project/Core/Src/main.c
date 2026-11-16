@@ -109,7 +109,8 @@ int main(void)
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   ece2_474_init();
-  printf("Hello, World!\n");
+  /* 2차 루틴이 USART2 비동기 송신 큐로 CSV/ACK를 보내므로
+     같은 UART를 사용하는 printf는 동시에 호출하지 않습니다. */
   /* USER CODE END 2 */
 
   /* Infinite loop */

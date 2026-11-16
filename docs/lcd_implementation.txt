@@ -1,0 +1,3 @@
+LCD: 기존 7세그먼트와 함께 사용. 날짜/시각, 스톱워치, 예약 상태/남은 초, V/I/P/E 표시.
+핀: E=A6, RS=G6, RW=D6, DATA[0..7]=A4/B2/C3/D4/A2/C5/C1/D1.
+순차 BCD 변환과 전체 검증/적용 방법은 second_implementation_review.txt 참조.

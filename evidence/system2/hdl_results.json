@@ -1,0 +1,27 @@
+[
+  {
+    "target": "top",
+    "errors": 0,
+    "diagnostics": 46
+  },
+  {
+    "target": "tb_project_lcd",
+    "errors": 0,
+    "diagnostics": 47
+  },
+  {
+    "target": "tb_system",
+    "errors": 0,
+    "diagnostics": 51
+  },
+  {
+    "target": "tb_display_ctrl",
+    "errors": 0,
+    "diagnostics": 60
+  },
+  {
+    "target": "tb_reservation_control",
+    "errors": 0,
+    "diagnostics": 67
+  }
+]

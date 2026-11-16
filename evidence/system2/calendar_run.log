@@ -1,0 +1,2 @@
+CALENDAR PASS: 36525 valid dates and 12 invalid date/time/weekday cases, actual parser RTL
+tb_calendar.sv:24: $finish called at 37267780000 (1ps)

@@ -1,48 +1,28 @@
+
 `timescale 1ns/1ps
 module tb_system;
-    reg clk=0,rst=1,start=0,clear=0,mode=0;
-    wire [7:0] seg_data,seg_com;
-    wire load;
-    integer checks=0;
-    top #(.CLK_HZ(1000),.SCAN_HZ(250),.DEBOUNCE_MS(2),
-          .DELAY_SECONDS(1),.DURATION_SECONDS(2)) dut (
-        .clk_50mhz(clk),.rst_p(rst),.btn_start(start),.btn_clear(clear),
-        .btn_mode(mode),.seg_data(seg_data),.seg_com(seg_com),.led_run(load));
-    always #5 clk=~clk;
-    task cycles(input integer n);
-        repeat(n) begin @(posedge clk); #1; end
-    endtask
-    task check(input bit ok,input string text);
-        checks++;
-        if(!ok) $fatal(1,"FAIL %s",text);
-    endtask
-    task press(input integer button_id);
-        @(negedge clk);
-        case(button_id) 0:start=1; 1:clear=1; 2:mode=1; endcase
-        cycles(10);
-        @(negedge clk); start=0; clear=0; mode=0;
-        cycles(10);
-    endtask
-    initial begin
-        $dumpfile("wave.vcd"); $dumpvars(0,tb_system);
-        cycles(5); @(negedge clk); rst=0; cycles(5);
-        check(!load && !dut.mode,"reset OFF, stopwatch mode");
-        press(0); cycles(100);
-        check(dut.stopwatch_running && dut.cs_o+10*dut.cs_t>0,"stopwatch starts");
-        check(dut.schedule_state==0 && !load,"stopwatch start does not arm reservation");
-        press(0); check(!dut.stopwatch_running,"stopwatch pauses");
-        press(2); check(dut.mode,"mode button selects reservation");
-        press(0); check(dut.schedule_state==1 && !load,"reservation waits");
-        cycles(1000); check(dut.schedule_state==2 && load,"reservation ON");
-        press(2); check(!dut.mode && load,"mode switch retains running reservation");
-        cycles(2000); check(dut.schedule_state==3 && !load,"OFF after duration in another screen");
-        press(2); press(0); cycles(1000); check(load,"second reservation starts");
-        press(1); check(!load && dut.schedule_state==0,"cancel OFF");
-        check(!dut.stopwatch_running && dut.cs_o==0 && dut.cs_t==0,"clear also resets stopwatch");
-        press(0); cycles(1000); check(load,"reservation restarts after cancel");
-        @(negedge clk); rst=1; cycles(3);
-        check(!load && !dut.mode,"global reset OFF");
-        $display("SYSTEM PASS checks=%0d",checks); $finish;
-    end
-    initial begin #1000000; $fatal(1,"timeout"); end
+ reg clk=0,rst=1,start=0,clear=0,mode=0,set_b=0,rx=1;
+ wire [7:0] led,seg_data,seg_com;wire gate_en,tx;
+ integer checks=0;
+ always #5 clk=~clk;
+ top #(.CLK_HZ(100000),.BAUD(10000),.SCAN_HZ(1000),.DEBOUNCE_MS(1)) dut(
+  .clk_50mhz(clk),.rst_p(rst),.btn_start(start),.btn_clear(clear),.btn_mode(mode),.btn_set(set_b),
+  .uart_rx(rx),.uart_tx(tx),.gate_en(gate_en),.led(led),.seg_data(seg_data),.seg_com(seg_com));
+ task automatic cycles(input integer n);repeat(n)@(negedge clk);endtask
+ task automatic check(input bit c,input string msg);checks++;if(!c)$fatal(1,"FAIL %s",msg);endtask
+ task automatic press(input integer b);
+  case(b)2:start=1;3:clear=1;4:mode=1;5:set_b=1;endcase
+  cycles(120);start=0;clear=0;mode=0;set_b=0;cycles(120);
+ endtask
+ initial begin
+  cycles(5);rst=0;cycles(200);check(!gate_en && dut.page==0,"reset OFF clock page");
+  press(4);press(2);cycles(2000);check(dut.wr,"watch runs");
+  press(4);press(3);check(dut.wr,"reservation clear leaves watch running");
+  press(4);press(3);check(dut.wr,"measurement clear leaves watch running");
+  press(4);press(3);check(dut.wr,"clock clear leaves watch running");
+  press(4);press(3);check(!dut.wr && {dut.mt,dut.mo,dut.ss_t,dut.ss_o,dut.ct,dut.co}==0,"watch clear local");
+  press(4);press(2);check(!gate_en && dut.state==5,"no measurement prevents ON");
+  rst=1;#1;check(!gate_en,"physical reset suppresses gate");
+  $display("INTEGRATED SYSTEM PASS checks=%0d",checks);$finish;
+ end
 endmodule

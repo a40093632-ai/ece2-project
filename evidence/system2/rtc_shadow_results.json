@@ -1,0 +1,8 @@
+{
+  "actual_function": "RTC_ReadDateTime extracted from MCU; mock TR/DR registers",
+  "decoded_snapshots": 73050,
+  "unset_rejected": true,
+  "wrong_weekday_rejected": true,
+  "rtc_hardware_oscillator_or_rollover_test": false,
+  "passed": true
+}

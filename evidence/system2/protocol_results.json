@@ -1,0 +1,10 @@
+{
+  "host_functions": "actual MCU C functions extracted, mock RTC/UART hardware",
+  "time_frame": "PASS",
+  "ARM_ack0_ack1": "PASS",
+  "WAIT_RUN_DONE_next_session": "PASS",
+  "500mW_5s_energy": "0.694mWh PASS",
+  "weekday_dates_checked": 36525,
+  "hardware_test": false,
+  "vivado_executed": false
+}

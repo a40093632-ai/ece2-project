@@ -1,0 +1,15 @@
+{
+  "mock_Vivado_API_only": true,
+  "cases": [
+    {
+      "mock_slack": 1.0,
+      "bitstream_requested": true,
+      "stopped_on_failure": false
+    },
+    {
+      "mock_slack": -0.1,
+      "bitstream_requested": false,
+      "stopped_on_failure": true
+    }
+  ]
+}

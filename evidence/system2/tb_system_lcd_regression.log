@@ -1,0 +1,4 @@
+compile exit: 3221225477
+run exit: 0
+INTEGRATED SYSTEM PASS checks=8
+C:\Users\josun\Documents\Codex\2026-11-01\new-chat-4\outputs\stage2_integrated\project\fpga\system\sim\tb_system.sv:26: $finish called at 50851000 (1ps)

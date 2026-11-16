@@ -13,6 +13,10 @@
       "path": "../scheduler"
     },
     {
+      "name": "UART",
+      "path": "../uart"
+    },
+    {
       "name": "MCU",
       "path": "../../mcu/main_project"
     },

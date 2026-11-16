@@ -5,7 +5,8 @@
     "src/stopwatch.v",
     "src/sevenseg_decode.v",
     "src/seg_scan8.v",
-    "src/stopwatch_top.v"
+    "src/stopwatch_top.v",
+    "src/display_ctrl.v"
   ],
   "testbench": "sim/tb_stopwatch.sv",
   "simulation_top": "tb_stopwatch"

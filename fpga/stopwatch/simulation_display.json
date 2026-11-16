@@ -1,0 +1,7 @@
+{
+  "sources": [
+    "src/display_ctrl.v"
+  ],
+  "testbench": "sim/tb_display_ctrl.sv",
+  "simulation_top": "tb_display_ctrl"
+}

@@ -1,4 +1,4 @@
-## Combo II-DLD S75 / xc7s75fgga484-1 / MAIN CLOCK F = 50 MHz
+## Combo II-DLD S75 / xc7s75fgga484-1 / MAIN CLOCK physical display = 50 MHz
 set_property PACKAGE_PIN B6 [get_ports clk_50mhz]
 set_property PACKAGE_PIN K4 [get_ports rst_p]
 set_property PACKAGE_PIN N8 [get_ports btn_start]
