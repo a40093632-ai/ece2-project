@@ -26,4 +26,4 @@ PASS  cc 99 -> 00 increments seconds
 PASS  00:59.99 -> 01:00.00
 --- result
 RESULT: PASS (0 errors)
-$finish called at time : 1304690 ns : File "C:/Users/sumin/stopwatch/sim/tb_stopwatch.v" Line 191
+$finish called at time : 1304690 ns : File "<LOCAL_PATH>" Line 191

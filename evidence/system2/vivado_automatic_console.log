@@ -18,4 +18,4 @@ read_verilog: Time (s): cpu = 00:00:08 ; elapsed = 00:00:05 . Memory (MB): peak 
 ERROR: [Common 17-69] Command failed: ERROR: [Common 17-39] 'tclapp::load_apps' failed due to earlier errors.
 
 Abnormal program termination (UNKNOWN)
-Please check 'C:/Users/josun/Documents/Codex/2026-11-01/new-chat-4/work/timing_rebuild/hs_err_pid20824.log' for details
+Please check '<LOCAL_PATH> for details

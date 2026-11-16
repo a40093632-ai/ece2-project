@@ -41,4 +41,4 @@ PASS  MODE -> clock, time kept
 PASS  back to measure, E kept
 --- result
 RESULT: PASS (0 errors)
-C:\Users\josun\Documents\Codex\2026-11-01\new-chat-4\outputs\stage2_integrated\project\fpga\stopwatch\sim\tb_display_ctrl.sv:190: $finish called at 9042000 (1ps)
+<PROJECT_ROOT>/fpga/stopwatch/sim/tb_display_ctrl.sv:190: $finish called at 9042000 (1ps)

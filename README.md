@@ -65,17 +65,3 @@ GPIO 측정이나 경고 제거만으로 해당 연결을 검증할 수 없다.
 외부 전원 OFF 상태에서 다운로드하고 리셋·취소 시 Gate–Source 약 0 V를 확인한다.
 전원 인가 전 실제 MOSFET 핀 배치·배선·저항 정격을 확인한다.
 50Ω 양단에 5 V가 걸리는 경우 소비전력은 0.5 W이며, 실제 저항 정격은 별도 확인한다.
-
-## Vivado
-
-소스 저장소: `D:/Engineering/Verilog_Lab/project`.
-Vivado 생성물: `D:/Engineering/Vivado_Work/project/system2`.
-Vivado Tcl Console에서 다음을 실행한다.
-
-```tcl
-source D:/Engineering/Verilog_Lab/project/fpga/system/prepare_fixed_project.tcl
-```
-
-프로젝트 이름은 `system2`, 설계 top은 `top`, 통합 시뮬레이션 top은 `tb_system`이다.
-빌드 검증은 `fpga/system/verify_build.tcl`을 사용하거나 Vivado GUI에서 수행한다.
-상세 인터페이스는 `docs/second_implementation_interfaces.md`를 참고한다.

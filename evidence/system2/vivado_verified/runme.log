@@ -11,10 +11,10 @@ INFO: [Common 17-3922] A valid Vivado Design Suite BASIC license has been detect
 # SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026
 # Start of session at: Mon Nov 16 23:15:02 2026
 # Process ID         : 9156
-# Current directory  : D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1
+# Current directory  : <VIVADO_ROOT>/system2/system2.runs/impl_1
 # Command line       : vivado.exe -log top.vdi -applog -product Vivado -messageDb vivado.pb -mode batch -source top.tcl -notrace
-# Log file           : D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top.vdi
-# Journal file       : D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1\vivado.jou
+# Log file           : <VIVADO_ROOT>/system2/system2.runs/impl_1/top.vdi
+# Journal file       : <VIVADO_ROOT>/system2/system2.runs/impl_1\vivado.jou
 # Running On         : CHOSUNLAPTOP
 # Platform           : Windows 11
 # Operating System   : 26300
@@ -47,8 +47,8 @@ INFO: [Netlist 29-17] Analyzing 293 Unisim elements for replacement
 INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
 INFO: [Project 1-479] Netlist was created with Vivado 2026.1
 INFO: [Project 1-570] Preparing netlist for logic optimization
-Parsing XDC File [D:/Engineering/Verilog_Lab/project/fpga/system/constraints/pins.xdc]
-Finished Parsing XDC File [D:/Engineering/Verilog_Lab/project/fpga/system/constraints/pins.xdc]
+Parsing XDC File [<PROJECT_ROOT>/fpga/system/constraints/pins.xdc]
+Finished Parsing XDC File [<PROJECT_ROOT>/fpga/system/constraints/pins.xdc]
 INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
 Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.009 . Memory (MB): peak = 911.117 ; gain = 0.000
 INFO: [Project 1-111] Unisim Transformation Summary:
@@ -220,9 +220,9 @@ INFO: [Vivado 12-24828] Executing command : report_drc -file top_drc_opted.rpt -
 Command: report_drc -file top_drc_opted.rpt -pb top_drc_opted.pb -rpx top_drc_opted.rpx
 INFO: [IP_Flow 19-234] Refreshing IP repositories
 INFO: [IP_Flow 19-1704] No user IP repositories specified
-INFO: [IP_Flow 19-2313] Loaded Vivado IP repository 'D:/AMD/2026.1/Vivado/data/ip'.
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '<LOCAL_PATH>
 INFO: [DRC 23-27] Running DRC with 2 threads
-INFO: [Vivado_Tcl 2-168] The results of DRC are in file D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top_drc_opted.rpt.
+INFO: [Vivado_Tcl 2-168] The results of DRC are in file <VIVADO_ROOT>/system2/system2.runs/impl_1/top_drc_opted.rpt.
 report_drc completed successfully
 report_drc: Time (s): cpu = 00:00:11 ; elapsed = 00:00:11 . Memory (MB): peak = 1852.391 ; gain = 0.000
 generate_parallel_reports: Time (s): cpu = 00:00:11 ; elapsed = 00:00:11 . Memory (MB): peak = 1852.391 ; gain = 0.000
@@ -238,7 +238,7 @@ Wrote PlaceStorage: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.006 . Memory (
 Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 1852.391 ; gain = 0.000
 Wrote Device Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.020 . Memory (MB): peak = 1852.391 ; gain = 0.000
 Write Physdb Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.114 . Memory (MB): peak = 1852.391 ; gain = 0.000
-INFO: [Common 17-1381] The checkpoint 'D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top_opt.dcp' has been generated.
+INFO: [Common 17-1381] The checkpoint '<VIVADO_ROOT>/system2/system2.runs/impl_1/top_opt.dcp' has been generated.
 Command: place_design
 Attempting to get a license for feature 'Vivado_Implementation' and/or device 'xc7s75'
 INFO: [Common 17-349] Got license for feature 'Vivado_Implementation' and/or device 'xc7s75'
@@ -493,7 +493,7 @@ Wrote PlaceStorage: Time (s): cpu = 00:00:02 ; elapsed = 00:00:00.768 . Memory (
 Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.027 . Memory (MB): peak = 1852.391 ; gain = 0.000
 Wrote Device Cache: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.020 . Memory (MB): peak = 1852.391 ; gain = 0.000
 Write Physdb Complete: Time (s): cpu = 00:00:03 ; elapsed = 00:00:00.902 . Memory (MB): peak = 1852.391 ; gain = 0.000
-INFO: [Common 17-1381] The checkpoint 'D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top_placed.dcp' has been generated.
+INFO: [Common 17-1381] The checkpoint '<VIVADO_ROOT>/system2/system2.runs/impl_1/top_placed.dcp' has been generated.
 Command: phys_opt_design
 Attempting to get a license for feature 'Vivado_Implementation' and/or device 'xc7s75'
 INFO: [Common 17-349] Got license for feature 'Vivado_Implementation' and/or device 'xc7s75'
@@ -519,7 +519,7 @@ Wrote PlaceStorage: Time (s): cpu = 00:00:03 ; elapsed = 00:00:00.771 . Memory (
 Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.026 . Memory (MB): peak = 1852.391 ; gain = 0.000
 Wrote Device Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.021 . Memory (MB): peak = 1852.391 ; gain = 0.000
 Write Physdb Complete: Time (s): cpu = 00:00:03 ; elapsed = 00:00:00.899 . Memory (MB): peak = 1852.391 ; gain = 0.000
-INFO: [Common 17-1381] The checkpoint 'D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top_physopt.dcp' has been generated.
+INFO: [Common 17-1381] The checkpoint '<VIVADO_ROOT>/system2/system2.runs/impl_1/top_physopt.dcp' has been generated.
 Command: route_design
 Attempting to get a license for feature 'Vivado_Implementation' and/or device 'xc7s75'
 INFO: [Common 17-349] Got license for feature 'Vivado_Implementation' and/or device 'xc7s75'
@@ -713,14 +713,14 @@ INFO: [Vivado 12-24828] Executing command : report_drc -file top_drc_routed.rpt 
 Command: report_drc -file top_drc_routed.rpt -pb top_drc_routed.pb -rpx top_drc_routed.rpx
 INFO: [IP_Flow 19-1839] IP Catalog is up to date.
 INFO: [DRC 23-27] Running DRC with 2 threads
-INFO: [Vivado_Tcl 2-168] The results of DRC are in file D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top_drc_routed.rpt.
+INFO: [Vivado_Tcl 2-168] The results of DRC are in file <VIVADO_ROOT>/system2/system2.runs/impl_1/top_drc_routed.rpt.
 report_drc completed successfully
 report_drc: Time (s): cpu = 00:00:10 ; elapsed = 00:00:08 . Memory (MB): peak = 1852.391 ; gain = 0.000
 INFO: [Vivado 12-24828] Executing command : report_methodology -file top_methodology_drc_routed.rpt -pb top_methodology_drc_routed.pb -rpx top_methodology_drc_routed.rpx
 Command: report_methodology -file top_methodology_drc_routed.rpt -pb top_methodology_drc_routed.pb -rpx top_methodology_drc_routed.rpx
 INFO: [Timing 38-35] Done setting XDC timing constraints.
 INFO: [DRC 23-133] Running Methodology with 2 threads
-INFO: [Vivado_Tcl 2-1520] The results of Report Methodology are in file D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top_methodology_drc_routed.rpt.
+INFO: [Vivado_Tcl 2-1520] The results of Report Methodology are in file <VIVADO_ROOT>/system2/system2.runs/impl_1/top_methodology_drc_routed.rpt.
 report_methodology completed successfully
 report_methodology: Time (s): cpu = 00:00:17 ; elapsed = 00:00:10 . Memory (MB): peak = 1852.391 ; gain = 0.000
 INFO: [Vivado 12-24828] Executing command : report_timing_summary -max_paths 10 -routable_nets -report_unconstrained -file top_timing_summary_routed.rpt -pb top_timing_summary_routed.pb -rpx top_timing_summary_routed.rpx -warn_on_violation
@@ -757,7 +757,7 @@ Wrote PlaceStorage: Time (s): cpu = 00:00:02 ; elapsed = 00:00:00.814 . Memory (
 Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.028 . Memory (MB): peak = 1852.391 ; gain = 0.000
 Wrote Device Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.021 . Memory (MB): peak = 1852.391 ; gain = 0.000
 Write Physdb Complete: Time (s): cpu = 00:00:03 ; elapsed = 00:00:01 . Memory (MB): peak = 1852.391 ; gain = 0.000
-INFO: [Common 17-1381] The checkpoint 'D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top_routed.dcp' has been generated.
+INFO: [Common 17-1381] The checkpoint '<VIVADO_ROOT>/system2/system2.runs/impl_1/top_routed.dcp' has been generated.
 INFO: [Common 17-206] Exiting Vivado at Mon Nov 16 23:20:58 2026...
 
 *** Running vivado
@@ -772,10 +772,10 @@ INFO: [Common 17-3922] A valid Vivado Design Suite BASIC license has been detect
 # SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026
 # Start of session at: Mon Nov 16 23:21:15 2026
 # Process ID         : 15272
-# Current directory  : D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1
+# Current directory  : <VIVADO_ROOT>/system2/system2.runs/impl_1
 # Command line       : vivado.exe -log top.vdi -applog -product Vivado -messageDb vivado.pb -mode batch -source top.tcl -notrace
-# Log file           : D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1/top.vdi
-# Journal file       : D:/Engineering/Vivado_Work/project/system2/system2.runs/impl_1\vivado.jou
+# Log file           : <VIVADO_ROOT>/system2/system2.runs/impl_1/top.vdi
+# Journal file       : <VIVADO_ROOT>/system2/system2.runs/impl_1\vivado.jou
 # Running On         : CHOSUNLAPTOP
 # Platform           : Windows 11
 # Operating System   : 26300
@@ -835,7 +835,7 @@ INFO: [Common 17-349] Got license for feature 'Vivado_Implementation' and/or dev
 Running DRC as a precondition to command write_bitstream
 INFO: [IP_Flow 19-234] Refreshing IP repositories
 INFO: [IP_Flow 19-1704] No user IP repositories specified
-INFO: [IP_Flow 19-2313] Loaded Vivado IP repository 'D:/AMD/2026.1/Vivado/data/ip'.
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '<LOCAL_PATH>
 INFO: [DRC 23-27] Running DRC with 2 threads
 INFO: [Vivado 12-3199] DRC finished with 0 Errors
 INFO: [Vivado 12-3200] Please refer to the DRC report (report_drc) for more information.

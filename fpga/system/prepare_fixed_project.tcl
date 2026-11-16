@@ -1,7 +1,10 @@
 # Run from Vivado Tcl Console after applying the code patch.
-# A separate project preserves system2's failed timing evidence.
+# Open or create system2 using the current source tree.
 set system_dir [file normalize [file dirname [info script]]]
-set output_dir {D:/Engineering/Vivado_Work/project/system2}
+# Portable default; an ignored local file may select a personal output folder.
+set output_dir [file normalize [file join $system_dir ../../build/vivado/system2]]
+set local_output_config [file join $system_dir vivado_output.local.tcl]
+if {[file isfile $local_output_config]} {source $local_output_config}
 set project_file [file join $output_dir system2.xpr]
 if {[llength [get_projects -quiet]] != 0} {close_project}
 if {[file isfile $project_file]} {

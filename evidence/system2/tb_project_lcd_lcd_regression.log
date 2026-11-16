@@ -1,4 +1,4 @@
 compile exit: 3221225477
 run exit: 0
 LCD PASS: 21 text cases, 75 bus bytes, initialization/timing/snapshot/refresh
-C:\Users\josun\Documents\Codex\2026-11-01\new-chat-4\outputs\stage2_integrated\project\fpga\system\sim\tb_project_lcd.sv:74: $finish called at 73655000000 (1ps)
+<PROJECT_ROOT>/fpga/system/sim/tb_project_lcd.sv:74: $finish called at 73655000000 (1ps)

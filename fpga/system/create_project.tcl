@@ -4,7 +4,10 @@ if {[llength [get_projects -quiet]] != 0} {
     error "Close the current project with File > Close Project, then source this script again."
 }
 set system_dir [file normalize [file dirname [info script]]]
-set output_dir {D:/Engineering/Vivado_Work/project/system2}
+# Portable default; an ignored local file may select a personal output folder.
+set output_dir [file normalize [file join $system_dir ../../build/vivado/system2]]
+set local_output_config [file join $system_dir vivado_output.local.tcl]
+if {[file isfile $local_output_config]} {source $local_output_config}
 if {[file exists $output_dir]} {
     error "system2 already exists. Open system2.xpr, or change output_dir to create a separate project."
 }

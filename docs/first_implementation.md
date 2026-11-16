@@ -87,6 +87,6 @@ system/system.code-workspace는 VS Code에서 전체 코드를 보는 작업 화
 - PI3C3245 BE는 LOW 연결/HIGH 차단이다. 제공 회로도는 DIP 접점 열림→풀다운 LOW→연결 구조이며 실물 SW5 위치를 대조한다.
 - 외부 GPIO 경로에는 온보드 100Ω과 PI3C3245가 있다. 외부 Gate 저항 330Ω·풀다운 20kΩ은 별도로 사용한다.
 - CFGBVS·CONFIG_VOLTAGE는 미지정 경고가 남아 있다. 실제 구성 뱅크 정보를 확인 후 설정한다. GPIO 3.3V와 구분한다.
-- 소스/Git: `D:\Engineering\Verilog_Lab\project`. Vivado 작업·비트스트림: `D:\Engineering\Vivado_Work\project`.
-- 저장소: https://github.com/a40093632-ai/ece2-project
+- 소스/Git: `<PROJECT_ROOT>`. Vivado 작업·비트스트림: `<VIVADO_ROOT>`.
+- 저장소: http<LOCAL_PATH>
 - 1차 태그 `v0.1.0`은 실물 검증 전 기준 소스 버전이다.

@@ -9,3 +9,7 @@
 Thumbs.db
 
 # Evidence logs, waveforms and photos are intentionally kept.
+
+# Local Vivado paths and portable default build output
+/fpga/system/vivado_output.local.tcl
+/build/
