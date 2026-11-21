@@ -11,7 +11,7 @@ STM32는 내부 RTC 시각을 유지하고 초가 바뀔 때 PC로 HH:MM:SS를 �
 | 예약 제어 | 5초 대기 → 10초 ON → OFF, 취소·중복 시작 방지 | 160개 자기검사 PASS |
 | FPGA 통합 | 모드 전환, 시작 입력 배분, 공통 취소·표시 선택 | 14개 통합 검사 PASS |
 
-시뮬레이션은 Icarus Verilog의 SystemVerilog 모드로 실행했다. 로그·VCD는 evidence의 각 기능 폴더에 있다. 기존 vivado_simulate.log와 photos는 조원이 제공한 증빙이다. review_simulation.log와 review_wave.vcd는 이번 검토에서 생성했다.
+시뮬레이션은 Icarus Verilog의 SystemVerilog 모드로 실행했다. 기능별 사진과 조원이 제공한 증빙은 evidence에 있다. 검토 중 생성한 원본 로그와 VCD는 로컬에서 관리한다.
 
 ## 프로젝트 구조
 
@@ -23,7 +23,7 @@ STM32는 내부 RTC 시각을 유지하고 초가 바뀔 때 PC로 HH:MM:SS를 �
 | fpga/scheduler | 예약 제어 단독 시험 |
 | fpga/system | 통합 top·테스트벤치·XDC·전체 작업용 워크스페이스 |
 | fpga/examples | 조교 FPGA 참고 예제 |
-| evidence | 기능별 사진·파형·로그 |
+| evidence | 기능별 사진·화면 캡처와 조원 증빙 |
 | docs/first_implementation.md | 현재 1차 구현과 확인할 사항 |
 
 common 폴더는 사용하지 않는다. 단독 시험은 각자의 소스를 사용한다. 통합 프로젝트는 stopwatch/src의 공통 버튼·분주·표시 모듈 한 벌, stopwatch.v, scheduler.v와 system/src/top.v를 명시적으로 등록한다. 동일한 이름의 모듈이 중복 등록되지 않도록 각 프로젝트의 소스 목록을 따른다.

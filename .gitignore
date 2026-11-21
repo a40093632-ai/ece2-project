@@ -8,7 +8,12 @@
 ~$*
 Thumbs.db
 
-# Evidence logs, waveforms and photos are intentionally kept.
+# Generated verification files can contain local paths and host names.
+/evidence/**/*.log
+/evidence/**/*.json
+/evidence/**/*.rpt
+/evidence/**/*.vcd
+/evidence/stage2_timing/
 
 # Local Vivado paths and portable default build output
 /fpga/system/vivado_output.local.tcl

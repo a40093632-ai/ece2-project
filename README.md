@@ -23,7 +23,7 @@ FPGA: HBE Combo II-DLD S75 / XC7S75FGGA484-1. MCU: NUCLEO-G474RE.
 | `fpga/gpio_test` | GPIO 전압 확인용 독립 설계 |
 | `mcu/main_project` | STM32 프로젝트 및 PC 시각 동기화 도구 |
 | `docs` | 구현·인터페이스 설명 |
-| `evidence` | 검증 로그·파형·사진 |
+| `evidence` | 실험 사진·화면 캡처 |
 
 ## 예약 측정 결과
 
@@ -50,7 +50,7 @@ FPGA: HBE Combo II-DLD S75 / XC7S75FGGA484-1. MCU: NUCLEO-G474RE.
 
 2026-11-16 Vivado system2의 배치·배선 결과: WNS +8.855 ns, TNS 0 ns,
 WHS +0.045 ns, THS 0 ns. 50 MHz 조건에서 setup/hold 위반 없음.
-비트스트림 생성 성공. 당시 근거는 `evidence/system2/vivado_verified/`에 보존한다.
+비트스트림을 생성했다. 원본 Vivado 로그와 리포트는 로컬에서 관리한다.
 이전 타이밍 실패 및 자동 실행 환경 오류 로그는 이력이며 최종 빌드 결과와 구분한다.
 
 HDL 정적 분석 오류 0. 날짜 해석 RTL 36,525일 및 잘못된 입력 12건,

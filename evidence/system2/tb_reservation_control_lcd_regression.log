@@ -1,5 +1,0 @@
-compile exit: 3221225477
-run exit: 0
-VCD info: dumpfile reservation_control.vcd opened for output.
-RESERVATION CONTROL PASS checks=3042 status_frames=51
-<PROJECT_ROOT>/fpga/system/sim/tb_reservation_control.sv:118: $finish called at 8605390000 (1ps)

@@ -1,4 +1,0 @@
-compile exit: 3221225477
-run exit: 0
-DISPLAY ADAPTER PASS checks=6
-<PROJECT_ROOT>/fpga/system/sim/tb_display_adapter.sv:26: $finish called at 2840000 (1ps)
