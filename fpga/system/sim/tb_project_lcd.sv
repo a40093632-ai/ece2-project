@@ -3,13 +3,14 @@ module tb_project_lcd;
  reg clk=0,rst=1;
  always #5000 clk=~clk; // 100 kHz test clock; each driver tick remains 10 us.
  reg [1:0] page=0,item=0;
+ reg [1:0] result_status=0;
  reg tv=0,mv=1,seen=1,overflow=0,run=0,gate=0;
  reg [2:0] state=0;reg [3:0] reason=0;
  reg [31:0] remain=0;
  wire [127:0] l1,l2;
  project_lcd_format fmt(
   .clk(clk),.rst(rst),
-  .page(page),.measure_item(item),.time_valid(tv),.measure_valid(mv),.measure_seen(seen),
+  .page(page),.measure_item(item),.time_valid(tv),.measure_valid(mv),.measure_seen(seen),.result_status(result_status),
   .e_overflow(overflow),.sw_running(run),.gate_en(gate),.date_bcd(32'h20261116),
   .time_bcd(24'h123456),.dow_bcd(8'h01),.sw_bcd(24'h010203),
   .rsv_state(state),.rsv_reason(reason),.rsv_remain_s(remain),
@@ -35,13 +36,17 @@ module tb_project_lcd;
   reason=5;rows("RSV 5 FAULT OFF ","ARM TIMEOUT     ");
   reason=6;rows("RSV 5 FAULT OFF ","CONFIG ERROR    ");
   reason=7;rows("RSV 5 FAULT OFF ","SESSION LOST    ");
-  page=3;rows("V BUS           ","00005000 mV     ");
+  page=3;rows("V BUS           ","00005.000 V      ");
   item=1;rows("I LOAD          ","000100.80 mA    ");
   item=2;rows("P LOAD          ","0000477.5 mW    ");
-  item=3;rows("E TOTAL         ","00000.694 mWh   ");
-  overflow=1;rows("E TOTAL         ","VALUE OVERFLOW  ");
-  mv=0;rows("E TOTAL         ","MEAS INVALID    ");
-  seen=0;rows("E TOTAL         ","NO MCU DATA     ");
+  item=3;rows("E SESSION       ","00000.694 mWh   ");
+  result_status=1;rows("E SESSION       ","RESULT PENDING  ");
+  result_status=3;rows("E SESSION       ","RESULT MISSING  ");
+  result_status=2;rows("E SESSIONPARTIAL","00000.694 mWh   ");
+  mv=0;rows("E SESSIONPARTIAL","NO VALID SAMPLE ");
+  mv=1;result_status=0;overflow=1;rows("E SESSION       ","VALUE OVERFLOW  ");
+  mv=0;rows("E SESSION       ","MEAS INVALID    ");
+  seen=0;rows("E SESSION       ","NO MCU DATA     ");
  end
 
  reg [127:0] src1="AAAAAAAAAAAAAAAA",src2="BBBBBBBBBBBBBBBB";

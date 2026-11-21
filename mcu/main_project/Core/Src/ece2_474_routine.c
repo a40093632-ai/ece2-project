@@ -72,6 +72,8 @@
 #define FPGA_TIME_PERIOD_MS    1000U
 #define PC_LOG_PERIOD_MS       500U
 #define MAX_INTEGRATE_GAP_MS   250U
+/* $S carries 28 bytes at 9600 baud, with ten wire bits per byte. */
+#define FPGA_STATUS_WIRE_MS   29U
 
 #define RX_RING_SIZE           256U    /* power of 2 */
 #define RX_RING_MASK            (RX_RING_SIZE - 1U)
@@ -83,7 +85,6 @@
 #define RTC_INIT_TIMEOUT_MS     100U
 #define RTC_LSE_TIMEOUT_MS      5000U
 #define RTC_SYNC_TIMEOUT_MS     200U
-#define SESSION_END_TIMEOUT_MS  500U
 
 /* STM32G4 RCC_BDCR / PWR_CR1 bit masks (RM0440). */
 #define ECE2_BDCR_LSEON         (1U << 0U)
@@ -133,6 +134,7 @@ static uint8_t uart3_rx_ece2;
 
 static char pc_line[PC_LINE_SIZE];
 static uint16_t pc_line_len;
+static bool pc_line_discard;
 static char fpga_line[FPGA_LINE_SIZE];
 static uint16_t fpga_line_len;
 
@@ -162,7 +164,6 @@ static uint32_t g_last_m_generation;
 
 static uint32_t g_fpga_tx_seq;
 static uint32_t g_fpga_measure_seq;
-static uint32_t g_pc_log_seq;
 static uint16_t g_run_id;
 static uint8_t g_session_ack, g_arm_phase, g_have_s;
 static uint16_t g_last_s_seq;
@@ -172,18 +173,20 @@ static uint32_t g_rload_mohm = DEFAULT_RLOAD_MOHM;
 
 static uint64_t g_etotal_2nJ;
 static uint64_t g_esession_2nJ;
-static uint8_t g_session_active;
-static uint8_t g_session_ending;
-static uint32_t g_session_end_tick;
-static uint8_t g_previous_power_valid;
-static uint64_t g_previous_power_uW;
-static uint32_t g_previous_sample_tick;
-static uint8_t g_session_previous_power_valid;
-static uint64_t g_session_previous_power_uW;
-static uint32_t g_session_previous_sample_tick;
+static bool g_session_active;
+static bool g_session_running;
+static bool g_session_partial;
+static bool g_session_final;
+static bool g_integrate_previous;
+static uint32_t g_run_start_tick;
+static Measurement_t g_run_sample;
+static Measurement_t g_pending_sample;
+static bool g_pc_report_active;
+static bool g_pc_final_pending;
 
 static uint8_t g_fpga_state_known;
 static uint8_t g_fpga_gate_cmd;
+static uint8_t g_fpga_state_number;
 static char g_fpga_state[8] = "UNKNOWN";
 static char g_fpga_reason[16] = "UNKNOWN";
 
@@ -555,48 +558,66 @@ static void Measurement_SetInvalid(void)
 {
     g_measurement.valid = 0U;
     g_sensor_conversion_pending = 0U;
-    g_previous_power_valid = 0U; /* 누락 구간의 오래된 전력 적분 방지 */
-    g_session_previous_power_valid = 0U;
+    if (g_session_running) g_session_partial = true;
+    g_pending_sample.valid = 0U;
+    g_integrate_previous = false;
     g_sensor_generation++;
 }
 
-static void Energy_IntegrateSample(uint64_t new_power_uW, uint32_t sample_tick)
+static void Energy_Add(uint64_t power_sum_uW, uint32_t dt_ms)
 {
-    if (g_previous_power_valid != 0U)
+    /* Trapezoidal integration in half-nJ units. */
+    uint64_t delta = power_sum_uW * dt_ms;
+    g_esession_2nJ += delta;
+    g_etotal_2nJ += delta;
+}
+
+static void Energy_CommitSample(const Measurement_t *sample)
+{
+    uint32_t tick = sample->sample_tick_ms;
+    if (g_integrate_previous)
     {
-        uint32_t dt_ms = (uint32_t)(sample_tick - g_previous_sample_tick);
-
-        if ((dt_ms > 0U) && (dt_ms <= MAX_INTEGRATE_GAP_MS))
-        {
-            /* 사다리꼴 적분: (Pprev + Pnow) / 2 [uW] * dt [ms] = nJ.
-             * 2배 단위로 보관하여 /2 반올림 손실을 없앱니다. */
-            uint64_t delta_2nJ = (g_previous_power_uW + new_power_uW) * (uint64_t)dt_ms;
-            g_etotal_2nJ += delta_2nJ;
-        }
+        uint32_t dt = tick - g_run_sample.sample_tick_ms;
+        if (dt <= MAX_INTEGRATE_GAP_MS)
+            Energy_Add(g_run_sample.power_uW + sample->power_uW, dt);
+        else g_session_partial = true;
     }
-
-    if ((g_session_active != 0U) && (g_session_previous_power_valid != 0U))
+    else if (!g_run_sample.valid && !g_session_partial)
     {
-        uint32_t session_dt_ms = (uint32_t)(sample_tick - g_session_previous_sample_tick);
-
-        if ((session_dt_ms > 0U) && (session_dt_ms <= MAX_INTEGRATE_GAP_MS))
-        {
-            uint64_t session_delta_2nJ =
-                (g_session_previous_power_uW + new_power_uW) * (uint64_t)session_dt_ms;
-            g_esession_2nJ += session_delta_2nJ;
-        }
+        uint32_t dt = tick - g_run_start_tick;
+        if (dt <= MAX_INTEGRATE_GAP_MS) Energy_Add(2ULL * sample->power_uW, dt);
+        else g_session_partial = true;
     }
+    g_run_sample = *sample;
+    g_integrate_previous = true;
+}
 
-    g_previous_power_uW = new_power_uW;
-    g_previous_sample_tick = sample_tick;
-    g_previous_power_valid = 1U;
+static void Energy_IntegrateSample(const Measurement_t *sample)
+{
+    if (!g_session_running || (int32_t)(sample->sample_tick_ms - g_run_start_tick) < 0) return;
+    // Keep one sample pending for the UART notification of Gate OFF.
+    if (g_pending_sample.valid) Energy_CommitSample(&g_pending_sample);
+    g_pending_sample = *sample;
+}
 
-    if (g_session_active != 0U)
+static void Session_Finish(uint32_t tick, bool normal)
+{
+    if (g_pending_sample.valid && (int32_t)(tick - g_pending_sample.sample_tick_ms) >= 0)
+        Energy_CommitSample(&g_pending_sample);
+    g_pending_sample.valid = 0U;
+    if (g_integrate_previous)
     {
-        g_session_previous_power_uW = new_power_uW;
-        g_session_previous_sample_tick = sample_tick;
-        g_session_previous_power_valid = 1U;
+        uint32_t dt = tick - g_run_sample.sample_tick_ms;
+        if (dt <= MAX_INTEGRATE_GAP_MS) Energy_Add(2ULL * g_run_sample.power_uW, dt);
+        else g_session_partial = true;
     }
+    g_session_partial |= !normal || !g_run_sample.valid;
+    g_session_active = false;
+    g_session_running = false;
+    g_integrate_previous = false;
+    g_session_final = true;
+    g_pc_final_pending = true;
+    g_session_ack = 0U;
 }
 
 static void INA219_StartConversion(uint32_t now)
@@ -677,18 +698,9 @@ static void INA219_FinishConversion(uint32_t now)
     g_measurement.sample_tick_ms = now;
     g_measurement.valid = 1U;
 
-    Energy_IntegrateSample(power_uW, now);
-
-    /* DONE/FAULT: take one conversion started after OFF confirmation so that
-       the final trapezoid includes the transition to the measured OFF current. */
-    if ((g_session_ending != 0U) &&
-        (g_fpga_gate_cmd == 0U) &&
-        ((int32_t)(g_sensor_trigger_tick - g_session_end_tick) >= 0))
-    {
-        g_session_active = 0U;
-        g_session_ending = 0U;
-        g_session_previous_power_valid = 0U;
-    }
+    Measurement_t sample = g_measurement;
+    sample.sample_tick_ms = g_sensor_trigger_tick;
+    Energy_IntegrateSample(&sample);
 
     g_sensor_conversion_pending = 0U;
     g_sensor_generation++;
@@ -926,28 +938,33 @@ static bool FPGA_SendTimeFrame(void)
     if(sent)g_fpga_tx_seq++;
     return sent;
 }
-static bool FPGA_SendMeasurementFrame(void)
+static bool FPGA_SendMeasurementFrame(bool final)
 {
-    char frame[128]; uint8_t valid=g_measurement.valid;
-    uint64_t total=g_etotal_2nJ/7200000ULL, session=g_esession_2nJ/7200000ULL;
-    if(total>999999999999ULL || session>999999999999ULL) valid=0;
-    char et[13],es[13];U64Fixed12(total<=999999999999ULL?total:0,et);U64Fixed12(session<=999999999999ULL?session:0,es);
-    snprintf(frame,sizeof frame,"$M,%04X,%04X,%05lu,%06lu,%06lu,%s,%s,%u,%u",
-        (unsigned)((g_fpga_measure_seq+1U)&0xffffU),g_run_id,
-        (unsigned long)(valid?g_measurement.vbus_mV:0),
-        (unsigned long)(valid?g_measurement.current_uA:0),
-        (unsigned long)(valid?g_measurement.power_uW:0),
-        et,es,valid,g_session_ack);
-    bool sent=Frame_AppendChecksum(frame,sizeof frame) && FPGA_SendText(frame);
-    if(sent)g_fpga_measure_seq++;
-    if(sent && valid && g_arm_phase==1) { g_arm_phase=2;g_session_ack=1; }
+    const Measurement_t *sample = final ? &g_run_sample : &g_measurement;
+    char frame[128];
+    uint8_t valid = sample->valid;
+    uint64_t total = g_etotal_2nJ / 7200000ULL;
+    uint64_t session = g_esession_2nJ / 7200000ULL;
+    if (total > 999999999999ULL || session > 999999999999ULL) valid = 0;
+    char et[13], es[13];
+    U64Fixed12(total <= 999999999999ULL ? total : 0, et);
+    U64Fixed12(session <= 999999999999ULL ? session : 0, es);
+    snprintf(frame, sizeof frame, "$%c,%04X,%04X,%05lu,%06lu,%06lu,%s,%s,%u,%u",
+             final ? 'F' : 'M', (unsigned)((g_fpga_measure_seq + 1U) & 0xffffU), g_run_id,
+             (unsigned long)(valid ? sample->vbus_mV : 0),
+             (unsigned long)(valid ? sample->current_uA : 0),
+             (unsigned long)(valid ? sample->power_uW : 0), et, es,
+             (unsigned)valid, final ? (unsigned)!g_session_partial : (unsigned)g_session_ack);
+    bool sent = Frame_AppendChecksum(frame, sizeof frame) && FPGA_SendText(frame);
+    if (sent && !final)
+    {
+        g_fpga_measure_seq++;
+        if (valid && g_arm_phase == 1) { g_arm_phase = 2; g_session_ack = 1; }
+    }
     return sent;
 }
 
-/* -------------------------------------------------------------------------- */
-/* PC CSV log                                                                  */
-/* -------------------------------------------------------------------------- */
-
+/* Human-readable PC serial output. */
 static void FormatMilliSigned(int64_t value_milli, char *out, size_t out_size)
 {
     uint64_t abs_value = (uint64_t)((value_milli < 0) ? -value_milli : value_milli);
@@ -966,80 +983,63 @@ static void FormatEnergy_mWh(uint64_t energy_2nJ, char *out, size_t out_size)
                    (unsigned long)(milli_mWh % 1000ULL));
 }
 
-static void PC_SendCsvHeader(void)
+static bool PC_SendReport(bool final)
 {
-    (void)PC_SendText(
-        "seq,uptime_ms,time,sid,state,reason,gate_cmd,valid,"
-        "Vbus_V,I_mA,Pload_mW,Esession_mWh,Etotal_mWh\r\n");
-}
-
-static void PC_SendCsvRow(uint32_t now)
-{
+    const Measurement_t *sample = &g_measurement;
+    if (final) sample = &g_run_sample;
+    else if (g_session_running) sample = g_pending_sample.valid ? &g_pending_sample : &g_run_sample;
     DateTime_t dt;
-    char time_text[32];
-    char vbus_text[24];
-    char current_text[24];
-    char power_text[24];
-    char esession_text[32];
-    char etotal_text[32];
-    char row[256];
-    int length;
-    bool rtc_ok = RTC_ReadDateTime(&dt);
-    uint32_t vbus_mV = 0U;
-    int64_t current_mA_milli = 0LL;
-    uint64_t power_mW_milli = 0ULL;
-    uint8_t valid = g_measurement.valid;
-
-    if (rtc_ok)
+    char clock[32] = "RTC UNSET";
+    char volts[24] = "--", amps[24] = "--", power[24] = "--";
+    char energy[32], total[32], report[256];
+    if (RTC_ReadDateTime(&dt))
+        snprintf(clock, sizeof clock, "%04u-%02u-%02u %02u:%02u:%02u",
+                 dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+    bool valid = sample->valid && (final || g_measurement.valid);
+    if (valid)
     {
-        (void)snprintf(time_text, sizeof(time_text), "%04u-%02u-%02u %02u:%02u:%02u",
-                       dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
+        FormatMilliSigned(sample->vbus_mV, volts, sizeof volts);
+        FormatMilliSigned(sample->current_uA, amps, sizeof amps);
+        FormatMilliSigned((int64_t)sample->power_uW, power, sizeof power);
     }
-    else
-    {
-        (void)snprintf(time_text, sizeof(time_text), "UNSET");
-    }
-
-    if (valid != 0U)
-    {
-        vbus_mV = g_measurement.vbus_mV;
-        current_mA_milli = (int64_t)g_measurement.current_uA; /* 1uA = 0.001mA */
-        power_mW_milli = g_measurement.power_uW;              /* 1uW = 0.001mW */
-    }
-
-    FormatMilliSigned((int64_t)vbus_mV, vbus_text, sizeof(vbus_text));
-    FormatMilliSigned(current_mA_milli, current_text, sizeof(current_text));
-    FormatMilliSigned((int64_t)power_mW_milli, power_text, sizeof(power_text));
-    FormatEnergy_mWh(g_esession_2nJ, esession_text, sizeof(esession_text));
-    FormatEnergy_mWh(g_etotal_2nJ, etotal_text, sizeof(etotal_text));
-
-    g_pc_log_seq++;
-    length = snprintf(row, sizeof(row),
-                      "%lu,%lu,%s,%u,%s,%s,%u,%u,%s,%s,%s,%s,%s\r\n",
-                      (unsigned long)g_pc_log_seq,
-                      (unsigned long)now,
-                      time_text,
-                      g_run_id,
-                      g_fpga_state,
-                      g_fpga_reason,
-                      (unsigned int)g_fpga_gate_cmd,
-                      (unsigned int)valid,
-                      vbus_text,
-                      current_text,
-                      power_text,
-                      esession_text,
-                      etotal_text);
-
-    if ((length > 0) && ((size_t)length < sizeof(row)))
-    {
-        (void)TxRing_Queue(&pc_tx_ring, &ECE2_PC_UART_HANDLE,
-                           (const uint8_t *)row, (uint16_t)length);
-    }
+    FormatEnergy_mWh(g_esession_2nJ, energy, sizeof energy);
+    FormatEnergy_mWh(g_etotal_2nJ, total, sizeof total);
+    const char *gate = !g_fpga_state_known ? "?" : g_fpga_gate_cmd ? "ON" : "OFF";
+    const char *quality = final && g_session_partial ? "PARTIAL" : valid ? "VALID" : "NO DATA";
+    int length = snprintf(report, sizeof report,
+                          "%s\r\n%u %s | %s | Gate %s | %s\r\n"
+                          "V %s V | I %s mA | P %s mW | E %s mWh | Total %s mWh\r\n",
+                          clock, (unsigned)g_fpga_state_number, g_fpga_state, g_fpga_reason,
+                          gate, quality, volts, amps, power, energy, total);
+    return length > 0 && (size_t)length < sizeof report &&
+        TxRing_Queue(&pc_tx_ring, &ECE2_PC_UART_HANDLE, (const uint8_t *)report, (uint16_t)length);
 }
 
-/* -------------------------------------------------------------------------- */
-/* PC command 처리                                                             */
-/* -------------------------------------------------------------------------- */
+/* Parse decimal ohms to integer milliohms, with at most three decimal places. */
+static bool ParseLoadOhms(const char *text, uint32_t *mohm)
+{
+    if (*text < '0' || *text > '9') return false;
+    uint32_t whole = 0U, fractional = 0U, scale = 100U;
+    while (*text >= '0' && *text <= '9')
+    {
+        whole = whole * 10U + (uint32_t)(*text++ - '0');
+        if (whole > 1000U) return false;
+    }
+    if (*text == '.')
+    {
+        text++;
+        if (*text < '0' || *text > '9') return false;
+        while (scale && *text >= '0' && *text <= '9')
+        {
+            fractional += scale * (uint32_t)(*text++ - '0');
+            scale /= 10U;
+        }
+    }
+    uint32_t value = whole * 1000U + fractional;
+    if (*text || value < 1000U || value > 1000000U) return false;
+    *mohm = value;
+    return true;
+}
 
 static void PC_SendAck(const char *message)
 {
@@ -1067,7 +1067,6 @@ static bool FPGA_IsConfirmedOff(void)
 static void PC_ProcessCommand(char *line)
 {
     unsigned int year, month, day, hour, minute, second;
-    unsigned int run_res;
     char extra;
     int count;
 
@@ -1120,10 +1119,10 @@ static void PC_ProcessCommand(char *line)
 
     if (strncmp(line, "RLOAD,", 6U) == 0)
     {
-        count = sscanf(line, "RLOAD,%u%c", &run_res, &extra);
-        if ((count != 1) || (run_res < 1000U) || (run_res > 1000000U))
+        uint32_t run_res;
+        if (!ParseLoadOhms(line + 6, &run_res))
         {
-            PC_SendError("RLOAD_EXPECT_MOHM_1000_TO_1000000");
+            PC_SendError("RLOAD_EXPECT_OHM_1_TO_1000");
             return;
         }
         if (!FPGA_IsConfirmedOff() || (g_session_active != 0U))
@@ -1132,14 +1131,13 @@ static void PC_ProcessCommand(char *line)
             return;
         }
         g_rload_mohm = run_res;
-        PC_SendAck("RLOAD_SET_MOHM");
+        PC_SendAck("RLOAD_SET_OHM");
         return;
     }
 
     if (strcmp(line, "CLEAR_ENERGY") == 0)
     {
-        if ((!FPGA_IsConfirmedOff()) || (g_session_active != 0U) ||
-            (g_session_ending != 0U))
+        if ((!FPGA_IsConfirmedOff()) || (g_session_active != 0U))
         {
             PC_SendError("CLEAR_ONLY_WHEN_FPGA_CONFIRMS_OFF");
             return;
@@ -1147,7 +1145,6 @@ static void PC_ProcessCommand(char *line)
 
         g_etotal_2nJ = 0ULL;
         /* Keep the last session result; only the lifetime total is cleared. */
-        g_previous_power_valid = 0U;
         PC_SendAck("ENERGY_CLEARED");
         return;
     }
@@ -1176,21 +1173,42 @@ static void FPGA_ProcessFrame(char *line)
     }
     if(sscanf(line,"$S,%4x,%4x,%1u,%5u,%1u,%1u%n",&seq,&id,&state,&remain,&gate,&reason,&used)!=6 || used!=24 || state>5 || gate>1 || reason>7 || (gate && state!=2))return;
     uint16_t delta=(uint16_t)(seq-g_last_s_seq);
-    if(g_have_s && (delta==0 || delta>=0x8000U))return;
-    g_have_s=1;g_last_s_seq=(uint16_t)seq;g_last_s_tick=HAL_GetTick();
-    g_fpga_state_known=1;g_fpga_gate_cmd=(uint8_t)gate;
-    strcpy(g_fpga_state,states[state]);strcpy(g_fpga_reason,reasons[reason]);
-    if(state==4 && (!g_session_ack || (uint16_t)id!=g_run_id) && g_arm_phase==0) {
-        if(g_measurement.valid && HAL_GetTick()-g_measurement.sample_tick_ms<=250U) {
-            g_run_id=(uint16_t)id;g_esession_2nJ=0;g_session_active=1;g_session_ending=0;
-            g_session_previous_power_valid=0;g_session_ack=0;g_arm_phase=1;
-            g_next_fpga_meas_tick=HAL_GetTick();g_last_m_generation=g_sensor_generation-1U;
-        }
+    if (g_pc_final_pending || (g_have_s && (delta==0 || delta>=0x8000U))) return;
+    uint32_t now = HAL_GetTick();
+    g_have_s = 1; g_last_s_seq = (uint16_t)seq; g_last_s_tick = now;
+    g_fpga_state_known = 1; g_fpga_gate_cmd = (uint8_t)gate;
+    g_fpga_state_number = (uint8_t)state;
+    strcpy(g_fpga_state, states[state]);
+    strcpy(g_fpga_reason, reasons[reason]);
+    if (g_session_active && ((uint16_t)id != g_run_id || state == 0 || state == 3 || state == 5))
+        Session_Finish(now - FPGA_STATUS_WIRE_MS, state == 3 && reason == 1 && (uint16_t)id == g_run_id);
+
+    if (state == 4 && !g_session_active && !g_pc_final_pending && g_arm_phase == 0 &&
+        g_measurement.valid && now - g_measurement.sample_tick_ms <= MAX_INTEGRATE_GAP_MS)
+    {
+        g_run_id = (uint16_t)id;
+        g_esession_2nJ = 0;
+        g_session_active = true;
+        g_session_partial = false;
+        g_session_final = false;
+        g_run_sample.valid = 0;
+        g_pending_sample.valid = 0;
+        g_session_ack = 0; g_arm_phase = 1;
+        g_next_fpga_meas_tick = now;
+        g_last_m_generation = g_sensor_generation - 1U;
     }
-    if(state!=4)g_arm_phase=0;
-    if(!gate && (state==0||state==3||state==5)) {
-        if(g_session_active && !g_session_ending) {g_session_ending=1;g_session_end_tick=HAL_GetTick();}
-        g_session_ack=0;
+    if (state != 4) g_arm_phase = 0;
+    if (!g_session_active || (uint16_t)id != g_run_id) return;
+
+    if ((state == 1 || state == 2) && !g_pc_report_active)
+    {
+        g_pc_report_active = true;
+        g_next_pc_log_tick = now;
+    }
+    if (state == 2 && gate && !g_session_running)
+    {
+        g_session_running = true;
+        g_run_start_tick = now - FPGA_STATUS_WIRE_MS;
     }
 }
 
@@ -1206,20 +1224,21 @@ static void UART_ProcessRxLines(void)
     {
         if ((byte == '\r') || (byte == '\n'))
         {
-            if (pc_line_len > 0U)
+            if (!pc_line_discard && pc_line_len > 0U)
             {
                 pc_line[pc_line_len] = '\0';
                 PC_ProcessCommand(pc_line);
-                pc_line_len = 0U;
             }
+            pc_line_len = 0U;
+            pc_line_discard = false;
         }
-        else if (pc_line_len < (PC_LINE_SIZE - 1U))
+        else if (!pc_line_discard && pc_line_len < (PC_LINE_SIZE - 1U))
         {
             pc_line[pc_line_len++] = (char)byte;
         }
-        else
+        else if (!pc_line_discard)
         {
-            pc_line_len = 0U;
+            pc_line_discard = true;
             PC_SendError("PC_LINE_TOO_LONG");
         }
     }
@@ -1288,36 +1307,27 @@ void ece2_474_init(void)
     g_next_fpga_time_tick = now + FPGA_TIME_PERIOD_MS;
     g_next_pc_log_tick = now + PC_LOG_PERIOD_MS;
 
-    PC_SendCsvHeader();
     PC_SendAck(g_rtc_valid ? "STM32_READY_RTC_VALID" : "STM32_READY_RTC_UNSET");
 }
 
 void polling_routine(void)
 {
-    uint32_t now = HAL_GetTick();
-
     UART_ProcessRxLines();
+    uint32_t now = HAL_GetTick();
+    if (g_have_s && now - g_last_s_tick > 1000U)
+    {
+        g_fpga_state_known = 0;
+        g_session_ack = 0; g_arm_phase = 0; g_have_s = 0;
+        g_fpga_state_number = 5;
+        strcpy(g_fpga_state, "FAULT");
+        strcpy(g_fpga_reason, "LINK_TIMEOUT");
+        g_integrate_previous = false;
+        g_pending_sample.valid = 0U;
+        if (g_session_active) Session_Finish(now, false);
+    }
     INA219_Task(now);
-    if(g_have_s && now-g_last_s_tick>1000U) {
-        g_fpga_state_known=0;g_session_ack=0;g_arm_phase=0;g_have_s=0;
-        strcpy(g_fpga_state,"UNKNOWN");
-    }
-
-    /* 측정 샘플이 오래되면 유효 상태를 해제합니다. */
-    if ((g_measurement.valid != 0U) &&
-        ((uint32_t)(now - g_measurement.sample_tick_ms) > 250U))
-    {
+    if (g_measurement.valid && now - g_measurement.sample_tick_ms > MAX_INTEGRATE_GAP_MS)
         Measurement_SetInvalid();
-    }
-
-    /* Sensor failure must not leave an ended session permanently active. */
-    if ((g_session_ending != 0U) &&
-        ((uint32_t)(now - g_session_end_tick) > SESSION_END_TIMEOUT_MS))
-    {
-        g_session_active = 0U;
-        g_session_ending = 0U;
-        g_session_previous_power_valid = 0U;
-    }
 
     if (TickDue(now, g_next_fpga_time_tick))
     {
@@ -1339,18 +1349,23 @@ void polling_routine(void)
 
         if (g_sensor_generation != g_last_m_generation)
         {
-            if(FPGA_SendMeasurementFrame())g_last_m_generation = g_sensor_generation;
+            if (FPGA_SendMeasurementFrame(false)) g_last_m_generation = g_sensor_generation;
         }
+        if (g_session_final && g_fpga_state_known && !g_session_active)
+            FPGA_SendMeasurementFrame(true);
     }
 
-    if (TickDue(now, g_next_pc_log_tick))
+    if (g_pc_final_pending)
     {
-        g_next_pc_log_tick += PC_LOG_PERIOD_MS;
-        if ((int32_t)(now - g_next_pc_log_tick) > (int32_t)PC_LOG_PERIOD_MS)
+        if (PC_SendReport(true))
         {
-            g_next_pc_log_tick = now + PC_LOG_PERIOD_MS;
+            g_pc_final_pending = false;
+            g_pc_report_active = false;
         }
-        PC_SendCsvRow(now);
+    }
+    else if (g_pc_report_active && TickDue(now, g_next_pc_log_tick))
+    {
+        if (PC_SendReport(false)) g_next_pc_log_tick = now + PC_LOG_PERIOD_MS;
     }
 
     /* TX queue에서 HAL_BUSY 등으로 시작되지 못한 송신을 다시 시도합니다. */

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync actual PC time to STM32; show CSV. Re-sync after MCU reset, not every loop.
+"""Sync actual PC time to STM32; show serial measurement reports. Re-sync after MCU reset, not every loop.
 Usage: py pc_time_sync.py COM5 (py -m pip install pyserial)
 Close other serial monitors on the same COM port first.
 """

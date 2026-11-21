@@ -7,7 +7,7 @@ module project_frame_rx #(
     input wire clk,rst,
     input wire [7:0] byte_data,
     input wire byte_valid, byte_error,
-    output reg time_event, measure_event, frame_error,
+    output reg time_event, measure_event, result_event, frame_error,
     output reg [15:0] time_seq, measure_seq, measure_session,
     output reg [31:0] date_ymd, time_hms,
     output reg [2:0] weekday,
@@ -19,7 +19,7 @@ module project_frame_rx #(
         HEX_LO=5, ENDING=6, LF=7;
     localparam integer GAP=(CLK_HZ/10<1)?1:CLK_HZ/10;
     reg [3:0] state;
-    reg is_measure;
+    reg is_measure,is_result;
     reg [3:0] field_no, digit_count;
     reg [39:0] accum, fields[0:8];
     reg [7:0] checksum, received_checksum;
@@ -71,9 +71,9 @@ module project_frame_rx #(
     endtask
     always @(posedge clk) begin
         if(rst) begin
-            state<=SEEK;is_measure<=0;field_no<=0;digit_count<=0;accum<=0;
+            state<=SEEK;is_measure<=0;is_result<=0;field_no<=0;digit_count<=0;accum<=0;
             checksum<=0;received_checksum<=0;gap_count<=0;
-            time_event<=0;measure_event<=0;frame_error<=0;
+            time_event<=0;measure_event<=0;result_event<=0;frame_error<=0;
             time_seq<=0;measure_seq<=0;measure_session<=0;date_ymd<=0;
             time_hms<=0;weekday<=0;time_ok<=0;measure_ok<=0;session_ack<=0;
             bus_mv<=0;current_ua<=0;power_uw<=0;total_uwh<=0;session_uwh<=0;
@@ -81,7 +81,7 @@ module project_frame_rx #(
             cal_year<=0;cal_month<=0;cal_day<=0;cal_hour<=0;cal_minute<=0;cal_second<=0;
             year_offset<=0;leap<=0;cal_good<=0;month_days<=0;month_offset<=0;week_sum<=0;
         end else begin
-            time_event<=0;measure_event<=0;frame_error<=0;
+            time_event<=0;measure_event<=0;result_event<=0;frame_error<=0;
             if(byte_error) begin state<=SEEK;frame_error<=1;gap_count<=0; end
             else if(byte_valid) begin
                 gap_count<=0;
@@ -91,8 +91,9 @@ module project_frame_rx #(
                     cal_year<=0;cal_month<=0;cal_day<=0;cal_hour<=0;cal_minute<=0;cal_second<=0;
                 end else case(state)
                     SEEK: ;
-                    TYPE: if(byte_data=="T" || byte_data=="M") begin
-                        is_measure<=byte_data=="M";checksum<=byte_data;state<=COMMA;
+                    TYPE: if(byte_data=="T" || byte_data=="M" || byte_data=="F") begin
+                        is_measure<=byte_data!="T";is_result<=byte_data=="F";
+                        checksum<=byte_data;state<=COMMA;
                     end else begin state<=SEEK;frame_error<=1; end
                     COMMA: if(byte_data==",") begin checksum<=checksum^byte_data;state<=FIELD; end
                         else begin state<=SEEK;frame_error<=1; end
@@ -128,7 +129,9 @@ module project_frame_rx #(
                                 measure_seq<=fields[0][15:0];measure_session<=fields[1][15:0];
                                 bus_mv<=fields[2][31:0];current_ua<=fields[3][31:0];power_uw<=fields[4][31:0];
                                 total_uwh<=fields[5];session_uwh<=fields[6];
-                                measure_ok<=fields[7][0];session_ack<=fields[8][0];measure_event<=1;
+                                measure_ok<=fields[7][0];session_ack<=fields[8][0];
+                                // For F, the final flag means complete, not an ARM acknowledgement.
+                                measure_event<=!is_result;result_event<=is_result;
                             end else begin
                                 if(fields[4]==0)commit_time(1'b0);
                                 else state<=CAL0;

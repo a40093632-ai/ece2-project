@@ -155,7 +155,7 @@ module tb_display_ctrl;
         check(screen == 3 && digits == 32'hAAAA_AAAA && led[3:0] == 4'b0001,
               "MODE -> not received --------, LED1");
         meas_rx = 1'b1; meas_valid = 1'b1; #1;
-        check(digits == 32'h0000_5000 && dp == 8'd0, "V 00005000 mV");
+        check(digits == 32'h0000_5000 && dp == 8'b0000_1000, "V 00005.000 V");
         pulse(1);
         check(digits == 32'h0001_0080 && dp == 8'b0000_0100 && led[3:0] == 4'b0010,
               "I 000100.80 mA, LED2");

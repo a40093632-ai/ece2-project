@@ -20,13 +20,15 @@ module reservation_control #(
     output reg time_valid,
     output wire measure_valid,
     output reg measure_received,
+ output wire display_valid,display_energy_valid,
+ output wire [1:0] result_status,
     output reg [31:0] bus_mv,current_ua,power_uw,
     output reg [63:0] total_uwh,session_uwh,
     output reg [31:0] frame_errors
 );
     wire [7:0] byte_rx,byte_tx;
     wire rx_valid,rx_error,tx_valid,tx_ready;
-    wire time_event,measure_event,frame_error,t_ok,m_ok,ack;
+    wire time_event,measure_event,result_event,frame_error,t_ok,m_ok,ack;
     wire [15:0] t_seq,m_seq,m_session;
     wire [31:0] t_date,t_time,m_v,m_i,m_p;
     wire [2:0] t_day;
@@ -37,6 +39,18 @@ module reservation_control #(
     reg [31:0] time_age;
     wire [15:0] time_delta=t_seq-last_time_seq;
     wire fresh_time=time_event && (!have_time || (time_delta!=0 && !time_delta[15]));
+    localparam [2:0] IDLE=0,WAIT=1,RUN=2,DONE=3,ARM=4,FAULT=5;
+    wire terminal=reservation_state==IDLE || reservation_state==DONE || reservation_state==FAULT;
+    reg have_session,session_bound,have_run_sample,result_ready,result_ok,result_complete;
+    reg [31:0] result_age;
+    reg [2:0] previous_state;
+    assign display_valid=have_session && (reservation_state==RUN ? have_run_sample && measure_valid :
+        terminal && result_ready && result_ok);
+    assign display_energy_valid=display_valid ||
+        (have_session && (reservation_state==ARM || reservation_state==WAIT));
+    // 0 live/none, 1 awaiting final packet, 2 partial result, 3 missing result.
+    assign result_status=!have_session || !terminal ? 0 : result_ready ?
+        (result_complete && result_ok ? 0 : 2) : (result_age>=CLK_HZ ? 3 : 1);
     assign led_run=gate_en;
     stage2_button_router buttons(.clk(clk),.rst(rst),.start_pulse(start_pulse),
         .clear_pulse(clear_pulse),.mode_pulse(mode_pulse),.set_pulse(set_pulse),
@@ -47,7 +61,7 @@ module reservation_control #(
         .clk(clk),.rst(rst),.rx(uart_rx),.data(byte_rx),.data_valid(rx_valid),.framing_error(rx_error));
     project_frame_rx #(.CLK_HZ(CLK_HZ)) parser(
         .clk(clk),.rst(rst),.byte_data(byte_rx),.byte_valid(rx_valid),.byte_error(rx_error),
-        .time_event(time_event),.measure_event(measure_event),.frame_error(frame_error),
+        .time_event(time_event),.measure_event(measure_event),.result_event(result_event),.frame_error(frame_error),
         .time_seq(t_seq),.measure_seq(m_seq),.measure_session(m_session),
         .date_ymd(t_date),.time_hms(t_time),.weekday(t_day),.time_ok(t_ok),
         .measure_ok(m_ok),.session_ack(ack),.bus_mv(m_v),.current_ua(m_i),.power_uw(m_p),
@@ -70,7 +84,10 @@ module reservation_control #(
             measure_received<=0;have_time<=0;last_time_seq<=0;time_age<=3*CLK_HZ;time_valid<=0;
             date_ymd<=0;time_hms<=0;weekday<=0;bus_mv<=0;current_ua<=0;power_uw<=0;
             total_uwh<=0;session_uwh<=0;frame_errors<=0;
+            have_session<=0;session_bound<=0;have_run_sample<=0;result_ready<=0;result_ok<=0;
+            result_complete<=0;result_age<=0;previous_state<=IDLE;
         end else begin
+            previous_state<=reservation_state;
             if(fresh_time)begin
                 have_time<=1;last_time_seq<=t_seq;time_age<=0;time_valid<=t_ok;
                 if(t_ok)begin date_ymd<=t_date;time_hms<=t_time;weekday<=t_day; end
@@ -80,10 +97,26 @@ module reservation_control #(
             end
             if(measure_event)measure_received<=1;
             if(fresh_measure)begin
-                bus_mv<=m_v;current_ua<=m_i;power_uw<=m_p;total_uwh<=m_total;
-                if(m_session==session_id && ack)session_uwh<=m_session_e;
+                total_uwh<=m_total;
+                if(!terminal && m_session==session_id && ack)session_bound<=1;
+                if(!have_session || (reservation_state==RUN && m_session==session_id && ack))begin
+                    bus_mv<=m_v;current_ua<=m_i;power_uw<=m_p;
+                end
+                if(reservation_state==RUN && m_session==session_id && ack)begin
+                    have_run_sample<=1;
+                    session_uwh<=m_session_e;
+                end
             end
-            if(reservation_state==4)session_uwh<=0; // Awaiting a new execution baseline.
+            if(reservation_state==ARM && previous_state!=ARM)begin
+                have_session<=1;session_bound<=0;have_run_sample<=0;result_ready<=0;result_ok<=0;result_complete<=0;
+                bus_mv<=0;current_ua<=0;power_uw<=0;session_uwh<=0;result_age<=0;
+            end else if(terminal && have_session && !result_ready)begin
+                if(result_age<CLK_HZ)result_age<=result_age+1'b1;
+                if(result_event && session_bound && m_session==session_id)begin
+                    bus_mv<=m_v;current_ua<=m_i;power_uw<=m_p;session_uwh<=m_session_e;
+                    result_ready<=1;result_ok<=m_ok;result_complete<=ack;
+                end
+            end
             if(frame_error && frame_errors!=32'hffffffff)frame_errors<=frame_errors+1'b1;
         end
     end

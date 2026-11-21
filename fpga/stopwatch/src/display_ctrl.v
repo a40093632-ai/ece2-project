@@ -121,7 +121,7 @@ module display_ctrl #(
     reg [7:0]  meas_dp;
     always @* begin
         case (meas_sel)
-            2'd0:    begin meas_val = meas_v_bcd; meas_dp = 8'b0000_0000; end // 00005000 (mV)
+            2'd0:    begin meas_val = meas_v_bcd; meas_dp = 8'b0000_1000; end // 00005.000 (V)
             2'd1:    begin meas_val = meas_i_bcd; meas_dp = 8'b0000_0100; end // 000100.80 (mA)
             2'd2:    begin meas_val = meas_p_bcd; meas_dp = 8'b0000_0010; end // 0000477.5 (mW)
             default: begin meas_val = meas_e_bcd; meas_dp = 8'b0000_1000; end // 00000.694 (mWh)

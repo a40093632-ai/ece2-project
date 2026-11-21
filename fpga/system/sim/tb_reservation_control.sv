@@ -4,6 +4,8 @@ module tb_reservation_control;
     localparam integer HZ=100000, BAUD=10000, DIV=10;
     reg clk=0,rst=1,uart_rx=1,start_pulse=0,clear_pulse=0,mode_pulse=0,set_pulse=0;
     wire uart_tx,gate_en,led_run,date_selected,watch_start,watch_clear,time_valid,measure_valid,measure_received;
+    wire display_valid,display_energy_valid;
+    wire [1:0] result_status;
     wire [1:0] page,measure_item;
     wire [2:0] reservation_state,weekday;
     wire [3:0] reservation_reason;
@@ -15,7 +17,7 @@ module tb_reservation_control;
     byte c,sum;
     string status_line="";
     always #5 clk=~clk;
-    reservation_control #(.CLK_HZ(HZ),.BAUD(BAUD),.DELAY_SECONDS(0),.DURATION_SECONDS(2)) dut(.*);
+    reservation_control #(.CLK_HZ(HZ),.BAUD(BAUD),.DELAY_SECONDS(1),.DURATION_SECONDS(2)) dut(.*);
     task automatic check(input bit condition,input string message);
         checks++;if(!condition)$fatal(1,"FAIL %s state=%0d reason=%0d",message,reservation_state,reservation_reason);
     endtask
@@ -72,6 +74,9 @@ module tb_reservation_control;
         press(2);check(reservation_state==4 && !gate_en,"START enters ARM with gate OFF");
         wait(last_status_state==4 && last_status_session==session_id);
         measurement(1,0,session_id);measurement(1,1,session_id);
+        check(reservation_state==1 && !gate_en && display_energy_valid && !display_valid &&
+              session_uwh==0,"WAIT has zero session energy and Gate OFF");
+        while(reservation_state==1)begin measurement(1,1,session_id);cycles(1000);end
         check(reservation_state==2 && gate_en && led_run,"valid UART session handshake enables RUN");
     endtask
     initial begin
@@ -91,8 +96,23 @@ module tb_reservation_control;
         // Keep measurements fresh until the two-second run finishes in another page.
         while(reservation_state==2)begin measurement(1,1,session_id);cycles(1000);end
         check(reservation_state==3 && !gate_en && !led_run,"automatic OFF in other page");
+        check(!display_valid && result_status==1,"DONE waits for final sample");
+        send_frame($sformatf("F,0001,%04h,04996,015100,075243,000000000815,000000000209,1,1",16'(session_id-1)),0);
+        check(!display_valid,"old session final frame rejected");
+        send_frame($sformatf("F,0002,%04h,04996,015100,075243,000000000815,000000000209,1,1",session_id),1);
+        check(!display_valid,"corrupt final frame rejected");
+        send_frame($sformatf("F,0002,%04h,04996,015100,075243,000000000815,000000000209,1,1",session_id),0);
+        check(display_valid && result_status==0 && bus_mv==4996 && current_ua==15100 &&
+              power_uw==75243 && session_uwh==209,"final measurements commit together");
+        measurement(1,0,session_id);
+        check(display_valid && bus_mv==4996 && session_uwh==209,"live measurements cannot replace final result");
+        send_frame($sformatf("F,0003,%04h,05000,000000,000000,000000000815,000000000000,1,1",session_id),0);
+        check(display_valid && bus_mv==4996 && session_uwh==209,"duplicate final cannot replace result");
         press(4);check(page==2,"return reservation page");measurement(1,1,session_id);
-        arm_session();press(3);check(reservation_state==0 && !gate_en,"reservation page cancel OFF");
+        arm_session();check(session_uwh==0 && bus_mv!=4996,"new reservation clears finished result");
+        press(3);check(reservation_state==0 && !gate_en,"reservation page cancel OFF");
+        send_frame($sformatf("F,0004,%04h,04996,015100,075243,000000000816,000000000001,1,0",session_id),0);
+        check(display_valid && result_status==2 && session_uwh==1,"cancelled reservation keeps partial result");
         measurement(1,1,session_id);arm_session();
         measurement(0,1,session_id);check(reservation_state==5 && !gate_en && reservation_reason==3,"sensor invalid OFF");
         measurement(1,1,session_id);press(2);check(reservation_state==5,"recovery plus START cannot restart");
@@ -103,6 +123,7 @@ module tb_reservation_control;
             send_frame($sformatf("T,%04h,20261116,123456,1,1",16'(k)),0);cycles(1000);
         end
         check(reservation_state==5 && reservation_reason==4 && !gate_en,"T traffic cannot refresh M watchdog");
+        cycles(HZ+5);check(result_status==3 && !display_valid,"missing final result is explicit");
         measurement(1,1,session_id);press(3);arm_session();
         rst=1;cycles(3);check(!gate_en,"global reset during RUN OFF");
         rst=0;cycles(5);
@@ -117,5 +138,5 @@ module tb_reservation_control;
         check(status_frames>5,"status frames observed");
         $display("RESERVATION CONTROL PASS checks=%0d status_frames=%0d",checks,status_frames);$finish;
     end
-    initial begin #20000000;$fatal(1,"integration test timeout");end
+    initial begin #50000000;$fatal(1,"integration test timeout");end
 endmodule

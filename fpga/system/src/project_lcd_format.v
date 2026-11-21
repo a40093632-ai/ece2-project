@@ -5,6 +5,7 @@ module project_lcd_format(
  input wire clk,rst,
  input wire [1:0] page,measure_item,
  input wire time_valid,measure_valid,measure_seen,e_overflow,sw_running,gate_en,
+ input wire [1:0] result_status,
  input wire [31:0] date_bcd,meas_v_bcd,meas_i_bcd,meas_p_bcd,meas_e_bcd,
  input wire [23:0] time_bcd,sw_bcd,
  input wire [7:0] dow_bcd,
@@ -61,12 +62,19 @@ module project_lcd_format(
    end
    3:begin
     case(measure_item)
-     0:begin line1="V BUS           ";line2={v," mV     "};end
+     0:begin line1="V BUS           ";line2={v[63:24],".",v[23:0]," V      "};end
      1:begin line1="I LOAD          ";line2={a[63:16],".",a[15:0]," mA    "};end
      2:begin line1="P LOAD          ";line2={p[63:8],".",p[7:0]," mW    "};end
-     3:begin line1="E TOTAL         ";line2={e[63:24],".",e[23:0]," mWh   "};end
+     3:begin line1="E SESSION       ";line2={e[63:24],".",e[23:0]," mWh   "};end
     endcase
-    if(!measure_seen)line2="NO MCU DATA     ";
+    if(result_status==1)line2="RESULT PENDING  ";
+    else if(result_status==3)line2="RESULT MISSING  ";
+    else if(result_status==2)begin
+     line1[55:0]="PARTIAL";
+     if(!measure_valid)line2="NO VALID SAMPLE ";
+     else if(measure_item==3 && e_overflow)line2="VALUE OVERFLOW  ";
+    end
+    else if(!measure_seen)line2="NO MCU DATA     ";
     else if(!measure_valid)line2="MEAS INVALID    ";
     else if(measure_item==3 && e_overflow)line2="VALUE OVERFLOW  ";
    end
