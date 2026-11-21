@@ -15,6 +15,15 @@ Thumbs.db
 /evidence/**/*.vcd
 /evidence/stage2_timing/
 
+# Keep original camera files local. The repository contains checked copies.
+/evidence/system1/photos/1차 구현회로1.jpg
+/evidence/system1/photos/1차 구현회로2.jpg
+/evidence/system1/photos/1차 구현회로3.jpg
+/evidence/system2/photo/2차 구현회로1.jpg
+/evidence/system2/photo/FPGA GPIO 출력 확인.jpg
+/evidence/system2/photo/FPGA GPIO 출력 확인 회로1.jpg
+/evidence/system2/photo/FPGA GPIO 출력 확인 회로2.jpg
+
 # Local Vivado paths and portable default build output
 /fpga/system/vivado_output.local.tcl
 /build/

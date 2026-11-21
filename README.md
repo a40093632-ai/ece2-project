@@ -23,7 +23,8 @@ FPGA: HBE Combo II-DLD S75 / XC7S75FGGA484-1. MCU: NUCLEO-G474RE.
 | `fpga/gpio_test` | GPIO 전압 확인용 독립 설계 |
 | `mcu/main_project` | STM32 프로젝트 및 PC 시각 동기화 도구 |
 | `docs` | 구현·인터페이스 설명 |
-| `evidence` | 실험 사진·화면 캡처 |
+| [`evidence/system1`](evidence/system1) | 1차 구현 보드 사진·MCU 시각 화면 |
+| [`evidence/system2`](evidence/system2) | 2차 회로 사진·GPIO 전압 측정·시뮬레이션 파형 |
 
 ## 예약 측정 결과
 
