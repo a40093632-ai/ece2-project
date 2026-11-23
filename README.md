@@ -41,11 +41,17 @@ FPGA: HBE Combo II-DLD S75 / XC7S75FGGA484-1. MCU: NUCLEO-G474RE.
 4. 부하가 꺼진 상태에서 Gate–Source 전압이 0 V 근처인지 확인하고, INA219의 무부하 `current_uA`를 음수 유효성 검사 직전에 여러 번 기록한다. 영점 보정값은 실측 후 정한다.
 5. 부하 저항 정격과 전원 전류 제한을 확인한 뒤 부하 전원을 인가한다.
 
-## 2차 수정본 검증
+## 2차 최종 기준본 검증
 
-- Vivado 2026.1에서 50 MHz 설계를 다시 배치·배선하고 비트스트림을 생성했다. WNS +9.261 ns, WHS +0.012 ns, setup·hold 위반 0이다. 기존 `CFGBVS-1` 경고의 실물 확인은 남아 있다.
-- FPGA 테스트벤치 6개를 실행했다. 예약 UART 테스트는 대기, 최종 결과 수신, 중복·검사합 오류·이전 예약 프레임 처리, 취소·리셋·통신 시간 초과를 확인했다.
-- STM32 ARM ELF를 생성해 I²C 초기화의 `0x40604E73`과 부팅 문구 삭제를 바이너리에서 확인했다. SCL, INA219, Gate의 실물 측정은 실험 때 진행한다.
+- 2026-11-23 14:22:13(KST)에 Vivado 2026.1에서 50 MHz 설계의 `system2` 비트스트림(`top.bit`)을 생성했다. 해당 빌드의 배치·배선 결과는 WNS +6.497 ns, WHS +0.051 ns이며 setup·hold 실패는 각각 0이다. `CFGBVS-1` 경고는 남아 있다.
+- `v0.2.2`와 동일한 RTL 및 테스트벤치로 Icarus 시뮬레이션을 실행했다. 최종 변경과 관련된 세 테스트의 결과는 아래와 같다. 생성된 시뮬레이션 실행 파일은 모두 종료 코드 0을 반환했다. Windows에서 Icarus 컴파일러는 실행 파일 생성 뒤 비정상 종료 코드를 반환했다.
+- STM32 실험용 ELF에는 INA219 전류 오프셋 −400 µA와 영점 허용 폭 ±300 µA를 적용했다. 실물 통합 시험에서 SCL 약 96.7 kHz, 5 V 미인가 상태의 Gate 동작, 330 Ω·100 Ω·50 Ω 부하의 예약과 계측을 확인했다. 사진과 측정 화면은 [실험 증빙](evidence/system2/photo)에 있다.
+
+| 테스트벤치 | 실행 결과 |
+| --- | --- |
+| `tb_system` | `INTEGRATED SYSTEM PASS checks=16` |
+| `tb_reservation_control` | `RESERVATION CONTROL PASS checks=5306 status_frames=89` |
+| `tb_project_lcd` | `LCD PASS: 28 text cases, 75 bus bytes, initialization/timing/snapshot/refresh` |
 
 ## 이전 Vivado 빌드 기록
 
@@ -59,10 +65,8 @@ MCU RTC 레지스터 해석 73,050건을 검증했다. ARM 객체 30개 컴파�
 Icarus는 실행 파일 생성 후 컴파일러 종료 시 예외가 발생한 사례가 있으므로
 시뮬레이션 PASS와 컴파일러 종료 상태를 구분한다.
 
-STM32 실제 도구 체인의 전체 링크·다운로드, RTC 실시간 동작,
-FPGA·STM32·INA219·외부 부하를 함께 연결한 시연은 후속 실험에서 확인한다.
-기존 GPIO 시험에서 HIGH 약 3.3 V / LOW 약 0 V를 확인했으며,
-이는 2차 통합 회로의 실물 검증 완료를 뜻하지 않는다.
+당시에는 GPIO 단독 시험에서 HIGH 약 3.3 V / LOW 약 0 V를 확인했다.
+STM32·FPGA·INA219·외부 부하의 실물 통합 시험은 2026-11-23에 진행했다.
 
 ## 전압 설정
 
