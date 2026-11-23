@@ -1,14 +1,26 @@
-# FPGA 1차 통합
+# FPGA 2차 통합 시스템
 
-system.code-workspace를 열면 MCU·스톱워치·예약 제어·통합 코드·증빙을 함께 볼 수 있다.
+FPGA는 시계, 스톱워치, 예약 출력과 측정 표시를 담당한다. STM32가 RTC 시각과 INA219 계측값을 전송하고, FPGA가 예약 상태와 Gate 명령을 회신한다. 기본 화면은 시계다.
 
-`src/top.v`가 기존 스톱워치와 상대시간 예약 제어를 연결한다. 공통 회로는 기존 stopwatch/src의 한 벌을 참조한다. 각 단독 시험 폴더는 자체 소스와 테스트벤치를 유지한다. system/src에 동일 모듈을 다시 복사하지 않는다.
+| 버튼 | 동작 |
+|---|---|
+| 1 (K4) | 전체 리셋, Gate OFF |
+| 2 (N8) | 예약 화면에서 시작, 스톱워치 화면에서 시작·일시정지·재개 |
+| 3 (N4) | 예약 화면에서 취소 또는 오류 확인, 스톱워치 화면에서 초기화 |
+| 4 (N1) | 시계 → 스톱워치 → 예약 → 측정 |
+| 5 (P6) | 시계의 날짜·시각 또는 측정 화면 V/I/P/E 선택 |
 
-버튼 1(K4)은 전체 리셋, 버튼 2(N8)는 현재 모드 시작/일시정지 또는 예약 시작, 버튼 3(N4)은 예약 취소 및 스톱워치 초기화다. 버튼 4(N1)는 화면 모드를 전환한다. 처음 모드는 스톱워치다. 모드 전환 중에도 실행 중인 기능은 계속 동작한다. 버튼 3은 모든 모드에서 예약을 취소한다. LED8(N5)은 예약 load_en만 표시한다.
+예약은 4 ARM(실행 ID 승인) → 1 WAIT(5초) → 2 RUN(10초) → 3 DONE 순으로 진행한다. 0은 IDLE, 5는 FAULT다. 화면 전환 중에도 예약과 스톱워치는 진행한다. LED5~8은 각각 ARM·WAIT, RUN, FAULT, Gate 명령을 나타낸다.
 
-예약은 5초 대기 후 10초 ON이다. 예약 화면 왼쪽은 상태 0=IDLE/1=WAIT/2=RUN/3=DONE, 오른쪽은 남은 MM.SS이다. 시계 UART와 실제 MOSFET 외부 핀은 후속 연결 단계다. 현재 LED로 출력 상태를 확인한다.
+첫 IDLE과 ARM·WAIT에서 V/I/P는 새 유효 계측에 따라 갱신하고 이번 E는 0이다. RUN에서는 같은 실행 ID의 표본을 사용한다. 종료 후 결과는 같은 ID의 F로 확정하며 다음 실행까지 유지한다. RUN 진입 전 취소·오류, 부분 결과, F 미수신은 측정 LCD에서 구분한다. FPGA는 이번 E, PC는 이번 E와 누적 Total을 표시한다.
 
-보드 클록 F(50MHz), 키패드 선택은 버튼 모드로 설정한다. 핀 배치는 스톱워치 XDC를 유지하고 버튼4를 추가했다. 실제 보드 검증 전이다.
+MAIN_CLOCK1(B6)은 50 MHz다. PORT A I/O00(F8)은 Gate, I/O01(E8)은 FPGA RX, I/O02(A7)는 FPGA TX다. 제약 파일은 constraints/pins.xdc다.
 
-워크스페이스는 전체 코드 탐색·편집에 사용한다. 시뮬레이션과 합성은 Vivado에서 수행한다. simulation.json의 sources 목록에 있는 회로 파일을 Design Sources, sim/tb_system.sv를 Simulation Sources, constraints/pins.xdc를 Constraints에 등록한다.
-최상위 모듈은 top, 시뮬레이션 최상위는 tb_system이다. Run Behavioral Simulation으로 시뮬레이션을 실행한다.
+Vivado Tcl Console에서 저장소 루트로 이동한 뒤 다음 두 줄을 실행한다.
+
+```tcl
+source {fpga/system/prepare_fixed_project.tcl}
+source {fpga/system/verify_build.tcl}
+```
+
+프로젝트 이름은 system2, 최상위 모듈은 top이다. tb_system은 전체 top의 기본 조작, tb_reservation_control은 UART 선로와 예약·오류·최종 결과, tb_project_lcd는 LCD 문자열과 버스 출력을 검증한다. 시뮬레이션에서는 해당 모듈을 sim_1의 top으로 지정하고 run all을 실행한다.

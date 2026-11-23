@@ -21,7 +21,7 @@ module top #(
  wire [1:0] page,item;
  wire ds,tv,mv,mseen;
  wire display_valid,display_energy_valid;
- wire [1:0] result_status;
+ wire [2:0] result_status;
  wire [2:0] state,weekday;
  wire [3:0] reason,mt,mo,ss_t,ss_o,ct,co;
  wire [31:0] remain,date_ymd,time_hms,vbus,current,power,frame_errors;
@@ -50,6 +50,13 @@ module top #(
  wire [23:0] tb;
  wire [7:0] wb,dp;
  wire tready,mready,seen,overflow;
+ reg have_live_sample;
+ always @(posedge clk_50mhz) begin
+  if (rst) have_live_sample <= 1'b0;
+  else if (mv) have_live_sample <= 1'b1;
+ end
+ wire show_last_live = have_live_sample && seen && result_status==0 &&
+                       (state==0 || state==1 || state==4);
  display_value_adapter adapter(.clk(clk_50mhz),.rst(rst),.time_valid(tv),
   .measure_valid(item==3 ? display_energy_valid : display_valid),.measure_received(mseen),
   .date_ymd(date_ymd),.time_hms(time_hms),.weekday(weekday),.bus_mv(vbus),.current_ua(current),.power_uw(power),
@@ -60,7 +67,7 @@ module top #(
   .mode_pulse(1'b0),.set_pulse(1'b0),.start_pulse(1'b0),.clear_pulse(1'b0),
   .time_valid(tv && tready),.date_bcd(db),.time_bcd(tb),.dow_bcd(wb),.sw_bcd({mt,mo,ss_t,ss_o,ct,co}),.sw_running(wr),
   .rsv_state(state),.rsv_remain_s(remain),.rsv_wait(state==1 || state==4),.rsv_run(state==2),.rsv_fault(state==5),
-  .meas_rx(mready),.meas_valid(mready),.e_overflow(overflow),.meas_v_bcd(vb),.meas_i_bcd(ib),.meas_p_bcd(pb),.meas_e_bcd(eb),
+  .meas_rx(mready || show_last_live),.meas_valid(mready),.e_overflow(overflow),.meas_v_bcd(vb),.meas_i_bcd(ib),.meas_p_bcd(pb),.meas_e_bcd(eb),
   .sw_start_pause(),.sw_clear(),.rsv_start(),.rsv_cancel(),.fault_ack(),.screen(),.digits(digits),.dp(dp),.led(led[6:0]));
  seg_scan8 scan(.clk(clk_50mhz),.rst(rst),.tick_scan(tick_scan),.digits(digits),.dp(dp),.seg_data(seg_data),.seg_com(seg_com));
  // LCD is an additional display sink; it cannot change reservation/Gate logic.

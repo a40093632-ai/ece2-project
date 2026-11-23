@@ -21,8 +21,8 @@ module reservation_control #(
     output wire measure_valid,
     output reg measure_received,
  output wire display_valid,display_energy_valid,
- output wire [1:0] result_status,
-    output reg [31:0] bus_mv,current_ua,power_uw,
+ output wire [2:0] result_status,
+    output wire [31:0] bus_mv,current_ua,power_uw,
     output reg [63:0] total_uwh,session_uwh,
     output reg [31:0] frame_errors
 );
@@ -44,13 +44,22 @@ module reservation_control #(
     reg have_session,session_bound,have_run_sample,result_ready,result_ok,result_complete;
     reg [31:0] result_age;
     reg [2:0] previous_state;
-    assign display_valid=have_session && (reservation_state==RUN ? have_run_sample && measure_valid :
-        terminal && result_ready && result_ok);
-    assign display_energy_valid=display_valid ||
-        (have_session && (reservation_state==ARM || reservation_state==WAIT));
-    // 0 live/none, 1 awaiting final packet, 2 partial result, 3 missing result.
-    assign result_status=!have_session || !terminal ? 0 : result_ready ?
-        (result_complete && result_ok ? 0 : 2) : (result_age>=CLK_HZ ? 3 : 1);
+    reg entered_run;
+    reg [31:0] live_v, live_i, live_p;
+    reg [31:0] run_v, run_i, run_p;
+    wire live_view = !have_session || reservation_state==ARM || reservation_state==WAIT;
+    wire stopped_before_run = have_session && terminal && !entered_run;
+    assign bus_mv     = live_view ? live_v : run_v;
+    assign current_ua = live_view ? live_i : run_i;
+    assign power_uw   = live_view ? live_p : run_p;
+    assign display_valid = live_view ? measure_valid :
+        reservation_state==RUN ? have_run_sample && measure_valid :
+        entered_run && result_ready && result_ok;
+    assign display_energy_valid = stopped_before_run || display_valid;
+    // 0 normal/live, 1 pending, 2 partial, 3 missing, 4 stopped before RUN.
+    assign result_status = !have_session || !terminal ? 0 :
+        stopped_before_run ? 4 : result_ready ? (result_complete && result_ok ? 0 : 2) :
+        result_age>=CLK_HZ ? 3 : 1;
     assign led_run=gate_en;
     stage2_button_router buttons(.clk(clk),.rst(rst),.start_pulse(start_pulse),
         .clear_pulse(clear_pulse),.mode_pulse(mode_pulse),.set_pulse(set_pulse),
@@ -81,8 +90,9 @@ module reservation_control #(
         .clk(clk),.rst(rst),.valid(tx_valid),.data(byte_tx),.ready(tx_ready),.tx(uart_tx));
     always @(posedge clk)begin
         if(rst)begin
+            entered_run<=0;live_v<=0;live_i<=0;live_p<=0;
             measure_received<=0;have_time<=0;last_time_seq<=0;time_age<=3*CLK_HZ;time_valid<=0;
-            date_ymd<=0;time_hms<=0;weekday<=0;bus_mv<=0;current_ua<=0;power_uw<=0;
+            date_ymd<=0;time_hms<=0;weekday<=0;run_v<=0;run_i<=0;run_p<=0;
             total_uwh<=0;session_uwh<=0;frame_errors<=0;
             have_session<=0;session_bound<=0;have_run_sample<=0;result_ready<=0;result_ok<=0;
             result_complete<=0;result_age<=0;previous_state<=IDLE;
@@ -99,21 +109,23 @@ module reservation_control #(
             if(fresh_measure)begin
                 total_uwh<=m_total;
                 if(!terminal && m_session==session_id && ack)session_bound<=1;
-                if(!have_session || (reservation_state==RUN && m_session==session_id && ack))begin
-                    bus_mv<=m_v;current_ua<=m_i;power_uw<=m_p;
-                end
+                live_v<=m_v;live_i<=m_i;live_p<=m_p;
                 if(reservation_state==RUN && m_session==session_id && ack)begin
+                    run_v<=m_v;run_i<=m_i;run_p<=m_p;
                     have_run_sample<=1;
                     session_uwh<=m_session_e;
                 end
             end
-            if(reservation_state==ARM && previous_state!=ARM)begin
+            if(reservation_state==RUN) entered_run<=1;
+            if((reservation_state==ARM && previous_state!=ARM) ||
+               (reservation_state==FAULT && (previous_state==IDLE || previous_state==DONE)))begin
+                entered_run<=0;
                 have_session<=1;session_bound<=0;have_run_sample<=0;result_ready<=0;result_ok<=0;result_complete<=0;
-                bus_mv<=0;current_ua<=0;power_uw<=0;session_uwh<=0;result_age<=0;
-            end else if(terminal && have_session && !result_ready)begin
+                run_v<=0;run_i<=0;run_p<=0;session_uwh<=0;result_age<=0;
+            end else if(terminal && entered_run && !result_ready)begin
                 if(result_age<CLK_HZ)result_age<=result_age+1'b1;
                 if(result_event && session_bound && m_session==session_id)begin
-                    bus_mv<=m_v;current_ua<=m_i;power_uw<=m_p;session_uwh<=m_session_e;
+                    run_v<=m_v;run_i<=m_i;run_p<=m_p;session_uwh<=m_session_e;
                     result_ready<=1;result_ok<=m_ok;result_complete<=ack;
                 end
             end

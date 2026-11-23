@@ -64,6 +64,9 @@
 #define RSHUNT_MOHM            100U     /* R100 표기: 명목 0.1Ω = 100mΩ */
 #define DEFAULT_RLOAD_MOHM     330000U  /* 기본값 330Ω. 반드시 실제 측정값으로 변경 */
 
+/* Signed zero-current reading, in uA. Fill in only after measuring this module. */
+#define CURRENT_OFFSET_UA      0
+#define CURRENT_ZERO_BAND_UA   0  /* symmetric residual noise after offset correction */
 #define SENSOR_PERIOD_MS       100U
 #define SENSOR_CONVERT_WAIT_MS 2U
 #define SENSOR_TIMEOUT_MS      25U
@@ -554,8 +557,15 @@ static bool INA219_Init(void)
     return true;
 }
 
-static void Measurement_SetInvalid(void)
+static const char *sensor_reason = "NO_SAMPLE";
+static bool have_raw_sample;
+static int16_t last_shunt_raw;
+static int32_t last_raw_uA;
+static uint32_t last_raw_tick;
+
+static void Measurement_SetInvalid(const char *reason)
 {
+    sensor_reason = reason;
     g_measurement.valid = 0U;
     g_sensor_conversion_pending = 0U;
     if (g_session_running) g_session_partial = true;
@@ -625,7 +635,7 @@ static void INA219_StartConversion(uint32_t now)
     if (INA219_WriteRegister(INA219_REG_CONFIG, INA219_CONFIG_TRIGGER) != HAL_OK)
     {
         g_ina219_ready = 0U;
-        Measurement_SetInvalid();
+        Measurement_SetInvalid("I2C_TRIGGER");
         return;
     }
 
@@ -649,7 +659,7 @@ static void INA219_FinishConversion(uint32_t now)
     if (status != HAL_OK)
     {
         g_ina219_ready = 0U;
-        Measurement_SetInvalid();
+        Measurement_SetInvalid("I2C_BUS");
         return;
     }
 
@@ -659,7 +669,7 @@ static void INA219_FinishConversion(uint32_t now)
         if ((uint32_t)(now - g_sensor_trigger_tick) > SENSOR_TIMEOUT_MS)
         {
             g_ina219_ready = 0U;
-            Measurement_SetInvalid();
+            Measurement_SetInvalid("CONVERSION_TIMEOUT");
         }
         return;
     }
@@ -672,7 +682,7 @@ static void INA219_FinishConversion(uint32_t now)
     if (status != HAL_OK)
     {
         g_ina219_ready = 0U;
-        Measurement_SetInvalid();
+        Measurement_SetInvalid("I2C_SHUNT");
         return;
     }
 
@@ -682,20 +692,28 @@ static void INA219_FinishConversion(uint32_t now)
     shunt_uV = (int64_t)shunt_raw * 10LL;
     current_uA = (shunt_uV * 1000LL) / (int64_t)RSHUNT_MOHM;
 
-    if (current_uA < 0 || current_uA > 999999 || ((bus_raw >> 3U) & 0x1FFFU)*4U > 26000U) {
-        Measurement_SetInvalid(); return;
-    }
-    abs_current_uA = (uint64_t)((current_uA < 0LL) ? -current_uA : current_uA);
+    last_shunt_raw = shunt_raw;
+    last_raw_uA = (int32_t)current_uA;
+    last_raw_tick = now;
+    have_raw_sample = true;
+    current_uA -= CURRENT_OFFSET_UA;
+    if (current_uA >= -CURRENT_ZERO_BAND_UA && current_uA <= CURRENT_ZERO_BAND_UA)
+        current_uA = 0;
+    if (current_uA < 0) { Measurement_SetInvalid("NEGATIVE_CURRENT"); return; }
+    if (current_uA > 999999) { Measurement_SetInvalid("CURRENT_RANGE"); return; }
+    if (((bus_raw >> 3U) & 0x1FFFU)*4U > 26000U) { Measurement_SetInvalid("BUS_RANGE"); return; }
+    abs_current_uA = (uint64_t)current_uA;
     current_sq = abs_current_uA * abs_current_uA;
 
     /* P[uW] = I[uA]^2 * R[mΩ] / 1e9 */
     power_uW = (current_sq * (uint64_t)g_rload_mohm) / 1000000000ULL;
 
-    if (power_uW > 999999ULL) { Measurement_SetInvalid(); return; }
+    if (power_uW > 999999ULL) { Measurement_SetInvalid("POWER_RANGE"); return; }
     g_measurement.vbus_mV = (uint32_t)(((bus_raw >> 3U) & 0x1FFFU) * 4U);
     g_measurement.current_uA = (int32_t)current_uA;
     g_measurement.power_uW = power_uW;
     g_measurement.sample_tick_ms = now;
+    sensor_reason = "OK";
     g_measurement.valid = 1U;
 
     Measurement_t sample = g_measurement;
@@ -1098,6 +1116,20 @@ static void PC_ProcessCommand(char *line)
         return;
     }
 
+    if (strcmp(line, "SENSOR?") == 0)
+    {
+        char reply[160];
+        if (have_raw_sample)
+            snprintf(reply, sizeof reply,
+                     "SENSOR,last_shunt=%d,raw_uA=%ld,age_ms=%lu,valid=%u,reason=%s\r\n",
+                     (int)last_shunt_raw, (long)last_raw_uA,
+                     (unsigned long)(HAL_GetTick() - last_raw_tick),
+                     (unsigned)g_measurement.valid, sensor_reason);
+        else
+            snprintf(reply, sizeof reply, "SENSOR,no_sample,valid=0,reason=%s\r\n", sensor_reason);
+        (void)PC_SendText(reply);
+        return;
+    }
     if (strcmp(line, "GET") == 0)
     {
         DateTime_t dt;
@@ -1299,7 +1331,7 @@ void ece2_474_init(void)
     else
     {
         g_ina219_ready = 0U;
-        Measurement_SetInvalid();
+        Measurement_SetInvalid("I2C_INIT");
     }
 
     now=HAL_GetTick();
@@ -1327,7 +1359,7 @@ void polling_routine(void)
     }
     INA219_Task(now);
     if (g_measurement.valid && now - g_measurement.sample_tick_ms > MAX_INTEGRATE_GAP_MS)
-        Measurement_SetInvalid();
+        Measurement_SetInvalid("STALE");
 
     if (TickDue(now, g_next_fpga_time_tick))
     {

@@ -5,7 +5,7 @@ module project_lcd_format(
  input wire clk,rst,
  input wire [1:0] page,measure_item,
  input wire time_valid,measure_valid,measure_seen,e_overflow,sw_running,gate_en,
- input wire [1:0] result_status,
+ input wire [2:0] result_status,
  input wire [31:0] date_bcd,meas_v_bcd,meas_i_bcd,meas_p_bcd,meas_e_bcd,
  input wire [23:0] time_bcd,sw_bcd,
  input wire [7:0] dow_bcd,
@@ -54,6 +54,7 @@ module project_lcd_format(
    2:begin
     line1={"RSV ",digit({1'b0,rsv_state})," ",state_name," ",gate_en?"ON ":"OFF"," "};
     line2={"LEFT ",rem[55:0]," s  "};
+    if(rsv_state==0 && rsv_reason==2)line2="CANCELLED       ";
     if(rsv_state==5)case(rsv_reason)
      3:line2="MEAS INVALID    ";4:line2="MEAS TIMEOUT    ";
      5:line2="ARM TIMEOUT     ";6:line2="CONFIG ERROR    ";
@@ -62,12 +63,15 @@ module project_lcd_format(
    end
    3:begin
     case(measure_item)
-     0:begin line1="V BUS           ";line2={v[63:24],".",v[23:0]," V      "};end
+     0:begin line1="V BUS           ";line2={v[63:24],".",v[23:0]," V     "};end
      1:begin line1="I LOAD          ";line2={a[63:16],".",a[15:0]," mA    "};end
      2:begin line1="P LOAD          ";line2={p[63:8],".",p[7:0]," mW    "};end
      3:begin line1="E SESSION       ";line2={e[63:24],".",e[23:0]," mWh   "};end
     endcase
-    if(result_status==1)line2="RESULT PENDING  ";
+    if(result_status==4)begin
+     if(measure_item==3)line2="0.000 mWh       ";
+     else line2="NO RUN DATA     ";
+    end else if(result_status==1)line2="RESULT PENDING  ";
     else if(result_status==3)line2="RESULT MISSING  ";
     else if(result_status==2)begin
      line1[55:0]="PARTIAL";

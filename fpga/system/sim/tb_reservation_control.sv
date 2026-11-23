@@ -5,7 +5,7 @@ module tb_reservation_control;
     reg clk=0,rst=1,uart_rx=1,start_pulse=0,clear_pulse=0,mode_pulse=0,set_pulse=0;
     wire uart_tx,gate_en,led_run,date_selected,watch_start,watch_clear,time_valid,measure_valid,measure_received;
     wire display_valid,display_energy_valid;
-    wire [1:0] result_status;
+    wire [2:0] result_status;
     wire [1:0] page,measure_item;
     wire [2:0] reservation_state,weekday;
     wire [3:0] reservation_reason;
@@ -74,7 +74,7 @@ module tb_reservation_control;
         press(2);check(reservation_state==4 && !gate_en,"START enters ARM with gate OFF");
         wait(last_status_state==4 && last_status_session==session_id);
         measurement(1,0,session_id);measurement(1,1,session_id);
-        check(reservation_state==1 && !gate_en && display_energy_valid && !display_valid &&
+        check(reservation_state==1 && !gate_en && display_energy_valid && display_valid && bus_mv==5000 &&
               session_uwh==0,"WAIT has zero session energy and Gate OFF");
         while(reservation_state==1)begin measurement(1,1,session_id);cycles(1000);end
         check(reservation_state==2 && gate_en && led_run,"valid UART session handshake enables RUN");
@@ -87,8 +87,19 @@ module tb_reservation_control;
         check(time_valid && date_ymd==20261116 && time_hms==123456,"time received through RX pin");
         send_frame("T,0002,20261116,235959,1,1",1);
         check(time_hms==123456 && frame_errors==1,"corrupt frame does not change clock");
-        measurement(1,0,0);check(measure_valid && bus_mv==5000 && current_ua==100000,"measurement through RX pin");
+        measurement(1,0,0);check(display_valid && measure_valid && bus_mv==5000 && current_ua==100000,"measurement through RX pin");
         press(4);check(page==1,"stopwatch page");press(2);press(4);check(page==2,"reservation page");
+        press(2);check(display_valid && bus_mv==5000 && session_uwh==0,"ARM retains live sample");
+        press(3);check(result_status==4 && session_uwh==0,"ARM cancel before acknowledgement");
+        press(2);measurement(1,0,session_id);measurement(1,1,session_id);
+        check(reservation_state==1,"WAIT before invalid input");
+        mseq++;
+        send_frame($sformatf("M,%04h,%04h,04876,000100,000003,000000000694,000000000001,1,1",
+                             16'(mseq),session_id),0);
+        check(display_valid && bus_mv==4876 && current_ua==100 && power_uw==3 && session_uwh==0,
+              "new WAIT sample updates live fields only");
+        measurement(0,1,session_id);check(reservation_state==5 && result_status==4,"WAIT fault before RUN");
+        measurement(1,0,session_id);press(3);
         arm_session();
         press(4);press(4);press(4); // 2 -> 3 -> 0 -> 1 (watch page)
         check(page==1,"watch page during RUN");press(3);
@@ -115,6 +126,9 @@ module tb_reservation_control;
         check(display_valid && result_status==2 && session_uwh==1,"cancelled reservation keeps partial result");
         measurement(1,1,session_id);arm_session();
         measurement(0,1,session_id);check(reservation_state==5 && !gate_en && reservation_reason==3,"sensor invalid OFF");
+        send_frame($sformatf("F,0005,%04h,04980,010200,123456,000000000815,000000000015,1,0",session_id),0);
+        check(result_status==2 && display_valid && bus_mv==4980 && session_uwh==15,
+              "RUN fault preserves qualified partial result");
         measurement(1,1,session_id);press(2);check(reservation_state==5,"recovery plus START cannot restart");
         press(3);check(reservation_state==0,"manual acknowledge");
         arm_session();
