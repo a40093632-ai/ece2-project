@@ -20,8 +20,8 @@ module reservation_control #(
     output reg time_valid,
     output wire measure_valid,
     output reg measure_received,
- output wire display_valid,display_energy_valid,
- output wire [2:0] result_status,
+    output wire display_live,display_valid,display_energy_valid,
+    output wire [2:0] result_status,
     output wire [31:0] bus_mv,current_ua,power_uw,
     output reg [63:0] total_uwh,session_uwh,
     output reg [31:0] frame_errors
@@ -47,12 +47,14 @@ module reservation_control #(
     reg entered_run;
     reg [31:0] live_v, live_i, live_p;
     reg [31:0] run_v, run_i, run_p;
-    wire live_view = !have_session || reservation_state==ARM || reservation_state==WAIT;
     wire stopped_before_run = have_session && terminal && !entered_run;
-    assign bus_mv     = live_view ? live_v : run_v;
-    assign current_ua = live_view ? live_i : run_i;
-    assign power_uw   = live_view ? live_p : run_p;
-    assign display_valid = live_view ? measure_valid :
+    // Allow sensor recovery to be checked without acknowledging the reservation fault.
+    assign display_live = !have_session || reservation_state==ARM ||
+        reservation_state==WAIT || stopped_before_run;
+    assign bus_mv     = display_live ? live_v : run_v;
+    assign current_ua = display_live ? live_i : run_i;
+    assign power_uw   = display_live ? live_p : run_p;
+    assign display_valid = display_live ? measure_valid :
         reservation_state==RUN ? have_run_sample && measure_valid :
         entered_run && result_ready && result_ok;
     assign display_energy_valid = stopped_before_run || display_valid;

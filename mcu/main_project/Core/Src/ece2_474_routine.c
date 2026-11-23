@@ -65,8 +65,8 @@
 #define DEFAULT_RLOAD_MOHM     330000U  /* 기본값 330Ω. 반드시 실제 측정값으로 변경 */
 
 /* Signed zero-current reading, in uA. Fill in only after measuring this module. */
-#define CURRENT_OFFSET_UA      0
-#define CURRENT_ZERO_BAND_UA   0  /* symmetric residual noise after offset correction */
+#define CURRENT_OFFSET_UA      (-400)
+#define CURRENT_ZERO_BAND_UA   300  /* symmetric residual noise after offset correction */
 #define SENSOR_PERIOD_MS       100U
 #define SENSOR_CONVERT_WAIT_MS 2U
 #define SENSOR_TIMEOUT_MS      25U

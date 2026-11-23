@@ -68,10 +68,9 @@ module project_lcd_format(
      2:begin line1="P LOAD          ";line2={p[63:8],".",p[7:0]," mW    "};end
      3:begin line1="E SESSION       ";line2={e[63:24],".",e[23:0]," mWh   "};end
     endcase
-    if(result_status==4)begin
-     if(measure_item==3)line2="0.000 mWh       ";
-     else line2="NO RUN DATA     ";
-    end else if(result_status==1)line2="RESULT PENDING  ";
+    if(result_status==4 && measure_item==3)line2="00000.000 mWh   ";
+    else if(result_status==4 && !measure_valid)line2="NO RUN DATA     ";
+    else if(result_status==1)line2="RESULT PENDING  ";
     else if(result_status==3)line2="RESULT MISSING  ";
     else if(result_status==2)begin
      line1[55:0]="PARTIAL";

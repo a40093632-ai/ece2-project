@@ -4,7 +4,7 @@ module tb_reservation_control;
     localparam integer HZ=100000, BAUD=10000, DIV=10;
     reg clk=0,rst=1,uart_rx=1,start_pulse=0,clear_pulse=0,mode_pulse=0,set_pulse=0;
     wire uart_tx,gate_en,led_run,date_selected,watch_start,watch_clear,time_valid,measure_valid,measure_received;
-    wire display_valid,display_energy_valid;
+    wire display_live,display_valid,display_energy_valid;
     wire [2:0] result_status;
     wire [1:0] page,measure_item;
     wire [2:0] reservation_state,weekday;
@@ -90,7 +90,8 @@ module tb_reservation_control;
         measurement(1,0,0);check(display_valid && measure_valid && bus_mv==5000 && current_ua==100000,"measurement through RX pin");
         press(4);check(page==1,"stopwatch page");press(2);press(4);check(page==2,"reservation page");
         press(2);check(display_valid && bus_mv==5000 && session_uwh==0,"ARM retains live sample");
-        press(3);check(result_status==4 && session_uwh==0,"ARM cancel before acknowledgement");
+        press(3);check(result_status==4 && session_uwh==0 && display_valid && bus_mv==5000,
+                       "ARM cancel retains live measurements without a run result");
         press(2);measurement(1,0,session_id);measurement(1,1,session_id);
         check(reservation_state==1,"WAIT before invalid input");
         mseq++;
@@ -99,7 +100,12 @@ module tb_reservation_control;
         check(display_valid && bus_mv==4876 && current_ua==100 && power_uw==3 && session_uwh==0,
               "new WAIT sample updates live fields only");
         measurement(0,1,session_id);check(reservation_state==5 && result_status==4,"WAIT fault before RUN");
-        measurement(1,0,session_id);press(3);
+        measurement(1,0,session_id);
+        check(reservation_state==5 && !gate_en && display_valid && bus_mv==5000 && session_uwh==0,
+              "WAIT fault shows recovered live measurements without releasing the fault");
+        press(3);
+        check(reservation_state==0 && display_valid && bus_mv==5000 && session_uwh==0,
+              "acknowledging a WAIT fault retains the recovered live measurements");
         arm_session();
         press(4);press(4);press(4); // 2 -> 3 -> 0 -> 1 (watch page)
         check(page==1,"watch page during RUN");press(3);

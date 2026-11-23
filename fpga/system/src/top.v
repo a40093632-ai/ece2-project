@@ -20,7 +20,7 @@ module top #(
  wire sp,cp,mp,stp,tick_10ms,tick_scan,ws,wc,wr,raw_gate,unused_led_run;
  wire [1:0] page,item;
  wire ds,tv,mv,mseen;
- wire display_valid,display_energy_valid;
+ wire display_live,display_valid,display_energy_valid;
  wire [2:0] result_status;
  wire [2:0] state,weekday;
  wire [3:0] reason,mt,mo,ss_t,ss_o,ct,co;
@@ -40,7 +40,8 @@ module top #(
   .reservation_state(state),.reservation_reason(reason),.remaining_seconds(remain),.session_id(sid),
   .date_ymd(date_ymd),.time_hms(time_hms),.weekday(weekday),.time_valid(tv),
   .measure_valid(mv),.measure_received(mseen),.bus_mv(vbus),.current_ua(current),.power_uw(power),
-  .display_valid(display_valid),.display_energy_valid(display_energy_valid),.result_status(result_status),
+  .display_live(display_live),.display_valid(display_valid),
+  .display_energy_valid(display_energy_valid),.result_status(result_status),
   .total_uwh(etotal),.session_uwh(esession),.frame_errors(frame_errors));
  assign gate_en=raw_gate && !rst_p && !rst;
  assign led[7]=gate_en;
@@ -55,8 +56,7 @@ module top #(
   if (rst) have_live_sample <= 1'b0;
   else if (mv) have_live_sample <= 1'b1;
  end
- wire show_last_live = have_live_sample && seen && result_status==0 &&
-                       (state==0 || state==1 || state==4);
+ wire show_last_live = display_live && have_live_sample && seen && item!=3;
  display_value_adapter adapter(.clk(clk_50mhz),.rst(rst),.time_valid(tv),
   .measure_valid(item==3 ? display_energy_valid : display_valid),.measure_received(mseen),
   .date_ymd(date_ymd),.time_hms(time_hms),.weekday(weekday),.bus_mv(vbus),.current_ua(current),.power_uw(power),
